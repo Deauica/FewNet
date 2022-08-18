@@ -2,14 +2,22 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
+
 BatchNorm2d = nn.BatchNorm2d
 
+
 class SegDetector(nn.Module):
+
     def __init__(self,
                  in_channels=[64, 128, 256, 512],
-                 inner_channels=256, k=10,
-                 bias=False, adaptive=False, smooth=False, serial=False,
-                 *args, **kwargs):
+                 inner_channels=256,
+                 k=10,
+                 bias=False,
+                 adaptive=False,
+                 smooth=False,
+                 serial=False,
+                 *args,
+                 **kwargs):
         '''
         bias: Whether conv layers have bias or not.
         adaptive: Whether to use adaptive threshold training or not.
@@ -29,36 +37,33 @@ class SegDetector(nn.Module):
         self.in2 = nn.Conv2d(in_channels[-4], inner_channels, 1, bias=bias)
 
         self.out5 = nn.Sequential(
-            nn.Conv2d(inner_channels, inner_channels //
-                      4, 3, padding=1, bias=bias),
+            nn.Conv2d(
+                inner_channels, inner_channels // 4, 3, padding=1, bias=bias),
             nn.Upsample(scale_factor=8, mode='nearest'))
         self.out4 = nn.Sequential(
-            nn.Conv2d(inner_channels, inner_channels //
-                      4, 3, padding=1, bias=bias),
+            nn.Conv2d(
+                inner_channels, inner_channels // 4, 3, padding=1, bias=bias),
             nn.Upsample(scale_factor=4, mode='nearest'))
         self.out3 = nn.Sequential(
-            nn.Conv2d(inner_channels, inner_channels //
-                      4, 3, padding=1, bias=bias),
+            nn.Conv2d(
+                inner_channels, inner_channels // 4, 3, padding=1, bias=bias),
             nn.Upsample(scale_factor=2, mode='nearest'))
         self.out2 = nn.Conv2d(
-            inner_channels, inner_channels//4, 3, padding=1, bias=bias)
+            inner_channels, inner_channels // 4, 3, padding=1, bias=bias)
 
         self.binarize = nn.Sequential(
-            nn.Conv2d(inner_channels, inner_channels //
-                      4, 3, padding=1, bias=bias),
-            BatchNorm2d(inner_channels//4),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(inner_channels//4, inner_channels//4, 2, 2),
-            BatchNorm2d(inner_channels//4),
-            nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(inner_channels//4, 1, 2, 2),
-            nn.Sigmoid())
+            nn.Conv2d(
+                inner_channels, inner_channels // 4, 3, padding=1, bias=bias),
+            BatchNorm2d(inner_channels // 4), nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(inner_channels // 4, inner_channels // 4, 2, 2),
+            BatchNorm2d(inner_channels // 4), nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(inner_channels // 4, 1, 2, 2), nn.Sigmoid())
         self.binarize.apply(self.weights_init)
 
         self.adaptive = adaptive
         if adaptive:
             self.thresh = self._init_thresh(
-                    inner_channels, serial=serial, smooth=smooth, bias=bias)
+                inner_channels, serial=serial, smooth=smooth, bias=bias)
             self.thresh.apply(self.weights_init)
 
         self.in5.apply(self.weights_init)
@@ -78,37 +83,51 @@ class SegDetector(nn.Module):
             m.weight.data.fill_(1.)
             m.bias.data.fill_(1e-4)
 
-    def _init_thresh(self, inner_channels,
-                     serial=False, smooth=False, bias=False):
+    def _init_thresh(self,
+                     inner_channels,
+                     serial=False,
+                     smooth=False,
+                     bias=False):
         in_channels = inner_channels
         if serial:
             in_channels += 1
         self.thresh = nn.Sequential(
-            nn.Conv2d(in_channels, inner_channels //
-                      4, 3, padding=1, bias=bias),
-            BatchNorm2d(inner_channels//4),
+            nn.Conv2d(
+                in_channels, inner_channels // 4, 3, padding=1, bias=bias),
+            BatchNorm2d(inner_channels // 4), nn.ReLU(inplace=True),
+            self._init_upsample(
+                inner_channels // 4,
+                inner_channels // 4,
+                smooth=smooth,
+                bias=bias), BatchNorm2d(inner_channels // 4),
             nn.ReLU(inplace=True),
-            self._init_upsample(inner_channels // 4, inner_channels//4, smooth=smooth, bias=bias),
-            BatchNorm2d(inner_channels//4),
-            nn.ReLU(inplace=True),
-            self._init_upsample(inner_channels // 4, 1, smooth=smooth, bias=bias),
+            self._init_upsample(
+                inner_channels // 4, 1, smooth=smooth, bias=bias),
             nn.Sigmoid())
         return self.thresh
 
     def _init_upsample(self,
-                       in_channels, out_channels,
-                       smooth=False, bias=False):
+                       in_channels,
+                       out_channels,
+                       smooth=False,
+                       bias=False):
         if smooth:
             inter_out_channels = out_channels
             if out_channels == 1:
                 inter_out_channels = in_channels
             module_list = [
-                    nn.Upsample(scale_factor=2, mode='nearest'),
-                    nn.Conv2d(in_channels, inter_out_channels, 3, 1, 1, bias=bias)]
+                nn.Upsample(scale_factor=2, mode='nearest'),
+                nn.Conv2d(in_channels, inter_out_channels, 3, 1, 1, bias=bias)
+            ]
             if out_channels == 1:
                 module_list.append(
-                    nn.Conv2d(in_channels, out_channels,
-                              kernel_size=1, stride=1, padding=1, bias=True))
+                    nn.Conv2d(
+                        in_channels,
+                        out_channels,
+                        kernel_size=1,
+                        stride=1,
+                        padding=1,
+                        bias=True))
 
             return nn.Sequential(module_list)
         else:
@@ -119,19 +138,21 @@ class SegDetector(nn.Module):
         in5 = self.in5(c5)
         in4 = self.in4(c4)
         in3 = self.in3(c3)
-        in2 = self.in2(c2)
+        in2 = self.in2(c2)  # self.in{2, 3, 4, 5} 主要起到了 降低维度的 作用
 
         out4 = self.up5(in5) + in4  # 1/16
         out3 = self.up4(out4) + in3  # 1/8
-        out2 = self.up3(out3) + in2  # 1/4
+        out2 = self.up3(out3) + in2  # 1/4, self.up{3, 4, 5} 就是 Upsample 2倍 的作用
 
         p5 = self.out5(in5)
         p4 = self.out4(out4)
         p3 = self.out3(out3)
         p2 = self.out2(out2)
+        # self.out{2, 3, 4, 5} 用以得到 不同尺度简单融合后的效果，
+        # 也有一个 Upsample 的作用，最后是 1/4 size 的 feature map
 
         fuse = torch.cat((p5, p4, p3, p2), 1)
-        # this is the pred module, not binarization module; 
+        # this is the pred module, not binarization module;
         # We do not correct the name due to the trained model.
         binary = self.binarize(fuse)
         if self.training:
@@ -141,8 +162,8 @@ class SegDetector(nn.Module):
         if self.adaptive and self.training:
             if self.serial:
                 fuse = torch.cat(
-                        (fuse, nn.functional.interpolate(
-                            binary, fuse.shape[2:])), 1)
+                    (fuse, nn.functional.interpolate(binary, fuse.shape[2:])),
+                    1)
             thresh = self.thresh(fuse)
             thresh_binary = self.step_function(binary, thresh)
             result.update(thresh=thresh, thresh_binary=thresh_binary)

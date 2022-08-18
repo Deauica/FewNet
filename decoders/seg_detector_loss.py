@@ -3,6 +3,8 @@ import sys
 import torch
 import torch.nn as nn
 
+from .fewnet_loss import FewNetLoss
+
 
 class SegDetectorLossBuilder():
     '''
@@ -29,9 +31,14 @@ class SegDetectorLossBuilder():
         self.loss_class = loss_class
         self.loss_args = args
         self.loss_kwargs = kwargs
+        self.modules_list = [  # 权宜之计
+            sys.modules[__name__],
+        ]
 
     def build(self):
-        return getattr(sys.modules[__name__], self.loss_class)(*self.loss_args, **self.loss_kwargs)
+        for module in self.modules_list:
+            if hasattr(module, self.loss_class):
+                return getattr(module, self.loss_class)(*self.loss_args, **self.loss_kwargs)
 
 
 class DiceLoss(nn.Module):
@@ -262,3 +269,5 @@ class L1LeakyDiceLoss(nn.Module):
         metrics.update(**l1_metric, thresh_loss=thresh_loss)
         loss = main_loss + thresh_loss + l1_loss * self.l1_scale
         return loss, metrics
+
+

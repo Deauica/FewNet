@@ -119,3 +119,8 @@ results
 *.pyx
 struture/representers/setup.py
 demo_results
+
+# mahy
+weights/
+
+# this file ends here

@@ -20,7 +20,7 @@ class Builder(Configurable):
         return self.model + '-' + getattr(structure.model, self.model).model_name(self.model_args)
 
     def build(self, device, distributed=False, local_rank: int = 0):
-        Model = getattr(structure.model,self.model)
+        Model = getattr(structure.model, self.model)
         model = Model(self.model_args, device,
                       distributed=distributed, local_rank=local_rank)
         return model

@@ -1,14 +1,16 @@
 import:
     - 'experiments/base.yaml'
 package:
-    - 'decoders.seg_detector_loss'
+    - 'decoders.seg_detector_loss'  # 需要更改
 define:
   - name: train_data
     class: ImageDataset
     data_dir:
-        - './datasets/total_text/'
+        - './datasets/TD_TR/TD500/'
+        - './datasets/TD_TR/TR400/'
     data_list:
-        - './datasets/total_text/train_list.txt'
+        - './datasets/TD_TR/TD500/train_list.txt'
+        - './datasets/TD_TR/TR400/train_list.txt'
     processes:
         - class: AugmentDetectionData
           augmenter_args:
@@ -18,11 +20,25 @@ define:
           only_resize: False
           keep_ratio: False
         - class: RandomCropData
-          size: [640, 640]
+          size: [800, 800] # from 640 to 800
           max_tries: 10
-        - class: MakeICDARData # if cmd["debug"], then draw_polygons
-        - class: MakeSegDetectionData
-        - class: MakeBorderMap
+        - class: MakeICDARData
+        - class: MakePatchTarget # 自定义的 Target 生成，应该在 MakeRBoxTarget 前面
+          weight_entropy: 0.7
+          weight_positive: 0.4
+          weight_negative: 0.1
+
+          shrink_ratio: 0.4
+          strides: [4]
+          prob_type: "dis"  # dis or gau
+          min_valid_distance: 1
+
+          dist_anchor_points: 7
+          iou_threshold: 0.4
+
+        - class: MakeRBoxTarget  # 标注的转换
+          version: "le135"
+
         - class: NormalizeImage
         - class: FilterKeys
           superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training']
@@ -30,13 +46,13 @@ define:
   - name: validate_data
     class: ImageDataset
     data_dir:
-        - './datasets/total_text/'
+        - './datasets/TD_TR/TD500/'
     data_list:
-        - './datasets/total_text/test_list.txt'
+        - './datasets/TD_TR/TD500/test_list.txt'
     processes:
         - class: AugmentDetectionData
           augmenter_args:
-              - ['Resize', {'width': 800, 'height': 800}]
+              - ['Resize', {'width': 736, 'height': 736}]
           only_resize: True
           keep_ratio: True
         - class: MakeICDARData

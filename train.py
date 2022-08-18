@@ -67,5 +67,11 @@ def main():
         trainer.train()
 
 if __name__ == '__main__':
+    import os, shutil
+    
+    if os.listdir(os.path.join(".", "debug")):
+        shutil.rmtree(os.path.join(".", "debug"))
+        os.mkdir("debug")
+    
     main()
 

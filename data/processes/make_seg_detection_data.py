@@ -34,7 +34,7 @@ class MakeSegDetectionData(DataProcess):
         h, w = image.shape[:2]
         if data['is_training']:
             polygons, ignore_tags = self.validate_polygons(
-                polygons, ignore_tags, h, w)
+                polygons, ignore_tags, h, w) # 顺序的更改，保证是 clockwise 或者是 anti-clockwise
         gt = np.zeros((1, h, w), dtype=np.float32)
         mask = np.ones((h, w), dtype=np.float32)
         for i in range(len(polygons)):
@@ -58,13 +58,13 @@ class MakeSegDetectionData(DataProcess):
                 padding.AddPath(subject, pyclipper.JT_ROUND,
                                 pyclipper.ET_CLOSEDPOLYGON)
                 shrinked = padding.Execute(-distance)
-                if shrinked == []:
+                if shrinked == []: # 也就是说，这里实在是 太小了，则忽略掉
                     cv2.fillPoly(mask, polygon.astype(
                         np.int32)[np.newaxis, :, :], 0)
                     ignore_tags[i] = True
                     continue
                 shrinked = np.array(shrinked[0]).reshape(-1, 2)
-                cv2.fillPoly(gt[0], [shrinked.astype(np.int32)], 1)
+                cv2.fillPoly(gt[0], [shrinked.astype(np.int32)], 1) # 可以看出，gt 仅仅保留了 shrink 的内容
 
         if filename is None:
             filename = ''

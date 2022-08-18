@@ -4,6 +4,7 @@ from shapely.geometry import Polygon
 import pyclipper
 from concern.config import Configurable, State
 
+
 class SegDetectorRepresenter(Configurable):
     thresh = State(default=0.3)
     box_thresh = State(default=0.7)

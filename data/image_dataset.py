@@ -9,6 +9,7 @@ import glob
 from concern.config import Configurable, State
 import math
 
+
 class ImageDataset(data.Dataset, Configurable):
     r'''Dataset reading from images.
     Args:
@@ -20,7 +21,8 @@ class ImageDataset(data.Dataset, Configurable):
     processes = State(default=[])
 
     def __init__(self, data_dir=None, data_list=None, cmd={}, **kwargs):
-        self.load_all(**kwargs)
+        super(ImageDataset, self).__init__(cmd=cmd, **kwargs)
+        
         self.data_dir = data_dir or self.data_dir
         self.data_list = data_list or self.data_list
         if 'train' in self.data_list[0]:

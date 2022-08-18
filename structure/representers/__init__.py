@@ -1,1 +1,3 @@
 from .seg_detector_representer import SegDetectorRepresenter
+
+from .fewnet_postprocess import FewNetPostProcess
