@@ -58,7 +58,7 @@ class MakeFewNetTarget(Configurable):
     
     def __init__(self,
                  angle_version="le135", need_norm=True,  # angle related
-                 bg_value=0, fg_value=0,
+                 bg_value=0, fg_value=0.78,
                  min_radius_limit=0, coef_gaussian=1, max_num_gau_center=50,  # gaussian related
                  strides=(8, 16, 32), resizer=None, resizer_builder=None, resizer_args=None,  # resizer
                  debug=False, cmd=None, **kwargs  # dbnet config related
@@ -185,7 +185,7 @@ class MakeFewNetTarget(Configurable):
         Modified from:
         https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
         """
-        px, py = p1[0] - p2[0], p1[1] - p2[1]
+        px, py = p1[0] - p2[0], p1[1] - p2[1]  # xs, ys is row-col type
         norm = px * px + py * py + 1e-6  # eps = 1e-6
         u = ((xs - p1[0]) * px + (ys - p1[1]) * py) / float(norm)
         np.clip(u, 0, 1)

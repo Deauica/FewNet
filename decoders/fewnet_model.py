@@ -217,7 +217,7 @@ class FewNet(nn.Module):
         angle = self.angle_head(descriptors)
         
         return out.update(  # 注意这里 和 FewNetLoss 的对应
-            score_maps=score_maps,
+            score_map=score_maps,  # score_maps --> score_map
             logits=logits, boxes=boxes, angle=angle
         )
 
