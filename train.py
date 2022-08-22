@@ -66,6 +66,17 @@ def main():
         trainer = Trainer(experiment)
         trainer.train()
 
+
+def setup_seed(seed):
+    import numpy as np
+    import random
+    
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    # torch.backends.cudnn.deterministic = True  # this line will set the training very slow
+
 if __name__ == '__main__':
     import os
     
@@ -76,6 +87,9 @@ if __name__ == '__main__':
                  if jpg_file.endswith(".jpg")]
     for jpg_path in jpg_paths:
         os.remove(jpg_path)
-        
+
+    setup_seed(20)  # guarantee the reproducibility of training
+    
+    # call main()
     main()
 
