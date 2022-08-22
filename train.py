@@ -88,7 +88,14 @@ if __name__ == '__main__':
     for jpg_path in jpg_paths:
         os.remove(jpg_path)
 
-    setup_seed(20)  # guarantee the reproducibility of training
+    # set manual seed to guarantee the reproducibility of training
+    setup_seed(20)
+    
+    # set the default device
+    if torch.cuda.is_available():
+        torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    else:
+        torch.set_default_tensor_type(torch.FloatTensor)
     
     # call main()
     main()
