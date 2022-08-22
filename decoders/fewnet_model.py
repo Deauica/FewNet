@@ -19,6 +19,10 @@ from .positional_embedding import PositionalEmbedding
 FPN = ConvFPN  # feature pyramid network
 
 
+class CoordConv(nn.Module):  # CoordConv definition
+    pass
+
+
 class FeatureSampling(nn.Module):
     """
     1. coord_conv,
@@ -199,7 +203,7 @@ class FewNet(nn.Module):
         else:
             pass
         
-    def forward(self, features):
+    def forward(self, features, *args, **kwargs):
         out = OrderedDict()
         # pass features through fpn
         p2, p3, p4, p5 = self.conv_fpn(features)  # p_i for i-th feature level, stride 2^i
@@ -228,7 +232,7 @@ def build_fewnet(
         # param for feature sampling network
         coord_conv_module=None, nk=(256, 128, 64), constrained_deform_pool_module=None,
         # param for feature grouping network
-        num_encoder_layer=4, model_dim=512, nhead=8,
+        num_encoder_layer=4, model_dim=256, nhead=8,  # model_dim is 256 instead of 512
         pe_type="sin_cos", num_dims=3,
         # param for fewnet
         target_mode="rbox", is_coord_norm=True
