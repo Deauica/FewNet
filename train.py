@@ -92,8 +92,9 @@ if __name__ == '__main__':
     setup_seed(20)
     
     # set the default device for tensor
-    if torch.cuda.is_available():
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    # In torch 1.9.1, error will be raised
+    # if torch.cuda.is_available():
+    #     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     
     # call main()
     main()
