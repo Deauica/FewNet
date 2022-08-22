@@ -111,7 +111,6 @@ class MakeFewNetTarget(Configurable):
               "polygons":
               "ignore_tags":
               "shape": original shape for this image file.
-            
         Returns:
             data (Dict[str, Any]): input `data` with these newly added entries:
               "boxes": [num_tgt_boxes_sample, 4], (x, y, w, h)

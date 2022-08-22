@@ -67,11 +67,15 @@ def main():
         trainer.train()
 
 if __name__ == '__main__':
-    import os, shutil
+    import os
     
-    if os.listdir(os.path.join(".", "debug")):
-        shutil.rmtree(os.path.join(".", "debug"))
-        os.mkdir("debug")
-    
+    if not os.path.join(".", "debug"):
+        os.mkdir(os.path.join(".", "debug"))
+    jpg_paths = [os.path.join("debug", jpg_file)
+                 for jpg_file in os.path.join(".", "debug")
+                 if jpg_file.endswith(".jpg")]
+    for jpg_path in jpg_paths:
+        os.remove(jpg_path)
+        
     main()
 
