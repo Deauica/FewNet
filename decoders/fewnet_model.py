@@ -206,7 +206,7 @@ class FewNet(nn.Module):
     def forward(self, features, *args, **kwargs):
         out = OrderedDict()
         # pass features through fpn
-        p2, p3, p4, p5 = self.conv_fpn(features)  # p_i for i-th feature level, stride 2^i
+        p2, p3, p4, p5 = self.fpn(features)  # p_i for i-th feature level, stride 2^i
         features = (p2, p3, p4)  # 注意这里的 顺序 和 feature_sampling 中定义的 N_k 的顺序
         
         # pas features through feature sampling network
