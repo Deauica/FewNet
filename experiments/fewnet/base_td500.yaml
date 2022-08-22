@@ -20,7 +20,7 @@ define:
           only_resize: False
           keep_ratio: False
         - class: RandomCropData
-          size: [1680, 1680] # from 640 to 800
+          size: [1280, 1280] # from 640 to 1280
           max_tries: 10
         - class: MakeICDARData
         - class: MakeFewNetTarget  # make fewnet target 放在预处理的过程
