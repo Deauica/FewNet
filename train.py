@@ -91,11 +91,9 @@ if __name__ == '__main__':
     # set manual seed to guarantee the reproducibility of training
     setup_seed(20)
     
-    # set the default device
+    # set the default device for tensor
     if torch.cuda.is_available():
-        torch.set_default_tensor_type(torch.cuda.FloatTensor)
-    else:
-        torch.set_default_tensor_type(torch.FloatTensor)
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
     
     # call main()
     main()
