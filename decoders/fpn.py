@@ -134,4 +134,7 @@ class VisionFPN(nn.Module):
         if self.fpn is not None:
             f_odict = self.fpn(f_odict)
             
-        return f_odict
+        return (
+            f_odict.values if not isinstance(features, OrderedDict)
+            else f_odict
+        )
