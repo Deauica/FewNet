@@ -13,10 +13,10 @@ import torch
 from torch import nn
 from collections import OrderedDict
 
-from .fpn import ConvFPN, weight_init
+from .fpn import VisionFPN, weight_init
 from .positional_embedding import PositionalEmbedding
 
-FPN = ConvFPN  # feature pyramid network
+FPN = VisionFPN  # feature pyramid network
 
 
 class CoordConv(nn.Module):  # CoordConv definition
@@ -49,8 +49,8 @@ class FeatureSampling(nn.Module):
         self.C = c
         self.coord_conv_module = (
             coord_conv_module if coord_conv_module else
-            nn.Conv2d(self.C // 4, self.C, kernel_size=3, stride=1, padding=1)
-        )  # change in_channels from C to C//4 due to the definition of conv_fpn
+            nn.Conv2d(self.C, self.C, kernel_size=3, stride=1, padding=1)
+        )  # self.C to self.C
         if constrained_deform_pool_module:
             self.constrained_deform_pool_module = constrained_deform_pool_module
         else:
@@ -96,7 +96,11 @@ class FeatureSampling(nn.Module):
             # feature sampling
             nk = self.Nk[i]
             _, topk_indices = torch.topk(significance_map.flatten(-2, -1), nk, dim=-1)  # [B, nk]
-            topk_feats = feature.flatten(-2, -1).permute(0, 2, 1)[topk_indices]  # [B, nk, C]
+            # topk_feats = feature.flatten(-2, -1).permute(0, 2, 1)[topk_indices]  # [B, nk, C]
+            topk_feats = torch.gather(
+                input=feature.flatten(-2, -1).permute(0, 2, 1),
+                dim=1, index=torch.tile(topk_indices.unsqueeze(dim=-1), (C, ))
+            )
             topk_indices_r, topk_indices_c = (
                 topk_indices // significance_map.shape[-1],
                 topk_indices % significance_map.shape[-1]   # [B, nk]

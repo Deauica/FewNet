@@ -5,6 +5,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from torchvision.ops import FeaturePyramidNetwork as _VISION_FPN
+from collections import OrderedDict
 
 def weight_init(m):
     classname = m.__class__.__name__
@@ -16,7 +18,7 @@ def weight_init(m):
         m.bias.data.fill_(1e-4)
         
         
-class ConvFPN(nn.Module):
+class DBFPN(nn.Module):
     r"""
     定义的是 conv network 所实现的 FPN，
     相对于 之前 DBNet 的 FPN，在这里添加了一个 BatchNorm2D
@@ -105,3 +107,31 @@ class ConvFPN(nn.Module):
         # self.out{2, 3, 4, 5} 包括了一个 conv + Upsample 的作用，
         # 其中， conv 包括了 3x3 的 卷积，以及 降低维度的作用，而 Upsample 则是 横向层面的尺度同步
         return p2, p3, p4, p5
+
+ConvFPN = DBFPN
+
+
+class VisionFPN(nn.Module):
+    def __init__(self, need_conv_fpn=False,
+                 in_channels=(64, 128, 256, 512), inner_channels=256,
+                 *args, **kwargs):
+        super(VisionFPN, self).__init__()
+        
+        self.need_conv_fpn = need_conv_fpn
+        self.in_channels, self.inner_channels = (
+            in_channels, inner_channels
+        )
+        self.fpn = _VISION_FPN(
+            in_channels_list=in_channels, out_channels=inner_channels,
+            
+        ) if self.need_conv_fpn else None
+        
+    def forward(self, features):
+        f_odict = OrderedDict(
+            [(str(i), features[i]) for i in range(len(features))]
+        ) if not isinstance(features, OrderedDict) else features
+        
+        if self.fpn is not None:
+            f_odict = self.fpn(f_odict)
+            
+        return f_odict
