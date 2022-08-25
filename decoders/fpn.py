@@ -135,6 +135,6 @@ class VisionFPN(nn.Module):
             f_odict = self.fpn(f_odict)
             
         return (
-            f_odict.values if not isinstance(features, OrderedDict)
+            f_odict.values() if not isinstance(features, OrderedDict)
             else f_odict
         )
