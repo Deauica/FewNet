@@ -17,11 +17,10 @@ class PositionalEmbedding(nn.Module):
         self.num_dims = num_dims
         self.embed_type = embed_type
         self.kwargs = kwargs
+        self.device = "cpu" if not torch.cuda.is_available() else "cuda"
         self.model_dim = self.kwargs.get("model_dim", self.pos_dim)
         self.embed_tables = self.build_embed_table()
         self.static = None  # whether pe_table will be updated by bp
-        
-        self.device = "cpu" if not torch.cuda.is_available() else "cuda"
     
     def forward(self, coords):
         """传入 坐标 的矩阵，并且 返回对应的 positional embedding.
