@@ -140,7 +140,7 @@ class FewNetLoss(nn.Module):
                        boxes coordinates (cx, cy, w, h)
               "angle": Tensor of dim [bs, num_selected_features, 1] with the angle for each corresponding boxes,
                        format should be `le135`
-              "score_map": List of Tensor with dim [bs, 1, Hi, Wi] with point in a tensor
+              "score_map": List of Tensor with dim [bs, Hi, Wi] with point in a tensor
                        representing its importance.
              
             targets (List[Tensor]): A list of batch_size, where each target(elem) is a dict containing:
@@ -245,7 +245,7 @@ class FewNetLoss(nn.Module):
             N_f += out_score_map.shape[-2] * out_score_map.shape[-1]
             loss_sum += F.smooth_l1_loss(
                 input=out_score_map, target=tgt_score_map, reduction="sum"
-            )
+            )  # shape of out_score_map should be same as tgt_score_map
         return loss_sum / N_f
     
     def loss_logits(self, outputs_logits):
