@@ -212,10 +212,12 @@ class GDLoss(nn.Module):  # GDLoss_v1 in mmrotate
             weight = weight.mean(-1)
         _kwargs = deepcopy(self.kwargs)
         _kwargs.update(kwargs)
-
-        mask = (weight > 0).detach()
-        pred = pred[mask]
-        target = target[mask]
+        
+        if weight:  # weight is not None
+            mask = (weight > 0).detach()
+            pred = pred[mask]
+            target = target[mask]
+        
         pred = self.preprocess(pred)
         target = self.preprocess(target)
 
