@@ -38,13 +38,14 @@ def xy_wh_r_2_xy_sigma(xywhr):
     return xy, sigma
 
 
-def gwd_loss(pred, target, fun='sqrt', tau=2.0):
+def gwd_loss(pred, target, fun='sqrt', tau=2.0, reduction="none"):
     """Gaussian Wasserstein distance loss.
     Args:
         pred (torch.Tensor): Predicted bboxes.
         target (torch.Tensor): Corresponding gt bboxes.
         fun (str): The function applied to distance. Defaults to 'log1p'.
         tau (float): Defaults to 1.0.
+        reduction (str): specify the way to reduction.
     Returns:
         loss (torch.Tensor)
     """
@@ -71,7 +72,15 @@ def gwd_loss(pred, target, fun='sqrt', tau=2.0):
     else:
         scale = 2 * (_t_det_sqrt.sqrt().sqrt()).clamp(1e-7)
         loss = torch.log1p(torch.sqrt(gwd_dis) / scale)
-    return loss
+        
+    if reduction == "none":
+        return loss
+    elif reduction == "sum":
+        return torch.sum(loss)
+    elif reduction == "mean":
+        return torch.mean(loss)
+    else:
+        raise ValueError("your reduction is: {} in gwd_loss".format(reduction))
 
 
 def bcd_loss(pred, target, fun='log1p', tau=1.0):
@@ -222,5 +231,5 @@ class GDLoss(nn.Module):  # GDLoss_v1 in mmrotate
         target = self.preprocess(target)
 
         return self.loss(
-            pred, target, fun=self.fun, tau=self.tau, **_kwargs
+            pred, target, fun=self.fun, tau=self.tau, reduction=reduction, **_kwargs
         ) * self.loss_weight
