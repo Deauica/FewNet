@@ -223,6 +223,9 @@ class FewNetLoss(nn.Module):
         )
         _targets = OrderedDict()
         for k in targets.keys():
+            if "image" in k:
+                continue
+            
             _targets[k] = torch.stack([
                 F.pad(input=target, pad=(0, 0, 0, self.max_target_num - target[k].shape[0]))
                 for target in targets[k]
