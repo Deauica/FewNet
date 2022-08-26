@@ -241,12 +241,38 @@ class FewNetLoss(nn.Module):
     def loss_score_map(self, out_score_maps: List[Tensor], tgt_score_maps: List[Tensor]):
         N_f = 0
         loss_sum = 0
+        tgt_score_maps = self.transform_tgt_score_maps(tgt_score_maps)  # add transform
         for out_score_map, tgt_score_map in zip(out_score_maps, tgt_score_maps):
             N_f += out_score_map.shape[-2] * out_score_map.shape[-1]
             loss_sum += F.smooth_l1_loss(
                 input=out_score_map, target=tgt_score_map, reduction="sum"
             )  # shape of out_score_map should be same as tgt_score_map
         return loss_sum / N_f
+    
+    @staticmethod
+    def transform_tgt_score_maps(src_tgt_score_maps, feat_level_num=3):
+        r""" Perform preprocess to `src_tgt_score_maps` to keep it complied with out_score_maps
+        
+        Args:
+            src_tgt_score_maps (List[List[Tensor]]): First list represents the batch_size and the
+              second list represents feature level. Each tensor's shape should be [Hi, Wi]
+              
+        Returns:
+            tgt_score_maps (List[Tensor]): This list represents the different feature level, and
+              each tensor's shape should be [B, Hi, Wi].
+        """
+        tgt_score_maps = []
+        for t_score_maps in zip(*src_tgt_score_maps):
+            tgt_score_maps.append(
+                torch.stack(t_score_maps, dim=0)  # [B, Hi, Wi]
+            )
+            
+        assert len(tgt_score_maps) == feat_level_num, (
+            "Please check your input data, since your len(tgt_score_maps): {}".format(
+                len(tgt_score_maps)
+            )
+        )
+        return tgt_score_maps
     
     def loss_logits(self, outputs_logits):
         """Calculate bce loss for logits in outputs.

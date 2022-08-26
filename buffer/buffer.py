@@ -1,6 +1,6 @@
 """ buffer.py """
 
-stage = 19  # 7
+stage = 21  # 7
 
 if stage == 1:
     """
@@ -418,3 +418,38 @@ elif stage == 19:
 elif stage == 20:
     """ test for collate fn """
     pass
+
+elif stage == 21:
+    """
+    summarize the data in SynthText downloaded from xunlei
+    """
+    import zipfile
+    import cv2
+    import os
+    import numpy as np
+    from tqdm import tqdm
+    
+    zip_filepath = r"E:\pcb_tyre_dataset.zip"
+    valid_img_list, invalid_img_list = [], []
+    
+    assert os.path.exists(zip_filepath), (
+        "check your zip_filepath: {}".format(zip_filepath)
+    )
+    
+    with zipfile.ZipFile(zip_filepath, mode="r") as f:
+        for fpath in tqdm(f.namelist()):
+            if not fpath.endswith(".jpg"):
+                continue
+            
+            raw_data = f.read(fpath)
+            img = cv2.imdecode(np.frombuffer(raw_data, np.uint8), 1)
+            if img is None:
+                invalid_img_list.append(fpath)
+            else:
+                valid_img_list.append((fpath, img.shape))
+    
+    print(
+        "len of valid img list: {} and len of invalid img list: {}".format(
+            len(valid_img_list), len(invalid_img_list)
+        )
+    )
