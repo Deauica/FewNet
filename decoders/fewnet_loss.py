@@ -227,7 +227,7 @@ class FewNetLoss(nn.Module):
                 continue
             
             _targets[k] = torch.stack([
-                F.pad(input=target, pad=(0, 0, 0, self.max_target_num - target[k].shape[0]))
+                F.pad(input=target, pad=(0, 0, 0, self.max_target_num - target.shape[0]))
                 for target in targets[k]
             ])
             
