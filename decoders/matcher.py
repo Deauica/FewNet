@@ -46,7 +46,7 @@ class HungarianMatcher(nn.Module):
                "logits": torch.Tensor, .shape == [batch_size, num_queries, 1], 表示 对应 box 为 positive
                的 probability.
                
-            targets (List[Dict[str, torch.Tensor]]):
+            targets (Dict[str, List[Union[Tensor, List[Tensor]]]]):
                包括 两个核心的 key, 分别是 boxes, angle， 也可能包括 labels:
                "boxes": torch.Tensor 类型，维度信息为 [num_target_boxes, 4], 表示 (x, y, w, h);
                "angle": torch.Tensor 类型，维度信息为 [num_target_boxes], 表示每一个 box 的角度信息,
@@ -61,7 +61,7 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
-        bs, num_queries = outputs.shape[:2]
+        bs, num_queries = outputs["boxes"].shape[:2]
         
         # step 1. obtain out_{boxes, angle, logits}
         out_logits = outputs["logits"].flatten(0, 1).sigmoid()  # [bs * num_queries, 1]
@@ -69,11 +69,12 @@ class HungarianMatcher(nn.Module):
         out_angle = outputs["angle"].flatten(0, 1)  # [bs * num_queries, 1]
         
         # step 2. obtain tgt_{boxes, angle, logits}
-        tgt_boxes = torch.cat([tgt["boxes"] for tgt in targets])  # [num_tgt_boxes_batch, 4] -- normalized
-        tgt_angle = torch.cat([tgt["angle"] for tgt in targets])  # [num_tgt_boxes_batch, 1]
-        tgt_labels = torch.cat([
-            tgt.get("labels", torch.full_like(tgt["angle"], 1))
-            for tgt in targets])  # [num_tgt_boxes_batch, 1], just like tgt_angle
+        tgt_boxes = torch.cat(targets["boxes"], dim=0)  # [num_tgt_boxes_batch, 4] -- normalized
+        tgt_angle = torch.cat(targets["angle"], dim=0)  # [num_tgt_boxes_batch, 1]
+        tgt_labels = (
+            torch.cat(targets["label"], dim=0) if "label" in targets else
+            torch.full_like(tgt_angle, 1)
+        )
         
         # step 3. generate cost matrix
         cost_logits = self.cost_logits_func(out_logits, tgt_labels)
@@ -84,7 +85,7 @@ class HungarianMatcher(nn.Module):
         cost_matrix = cost_matrix.reshape([bs, num_queries, -1]).cpu()
         
         # step 4. perform hungarian algo
-        sizes = [len(v["boxes"]) for v in targets]
+        sizes = [len(_) for _ in targets["boxes"]]
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(cost_matrix.split(sizes, -1))]
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
                 for i, j in indices]

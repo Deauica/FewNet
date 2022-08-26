@@ -213,7 +213,5 @@ class FewNetCollate(concern.config.Configurable):
             result[k] = default_convert([item[k] for item in batch])
         return result
 
-
-
 if __name__ == "__main__":
     pass

@@ -143,12 +143,12 @@ class FewNetLoss(nn.Module):
               "score_map": List of Tensor with dim [bs, Hi, Wi] with point in a tensor
                        representing its importance.
              
-            targets (List[Tensor]): A list of batch_size, where each target(elem) is a dict containing:
-               "boxes": Tensor of dim [num_tgt_boxes_i, 4] with the normalized boxes coordination
-               "angle": Tensor of dim [num_tgt_boxes_i, 1] with the angle for each boxes.
+            targets (Dict[List[Union[Tensor, List[Tensor]]]]): a dict containing at least these entries:
+               "boxes": List of Tensor with dim [num_tgt_boxes_i, 4] for the normalized boxes coordination
+               "angle": List of Tensor with dim [num_tgt_boxes_i, 1] for the angle for each boxes.
                        Format should be `le135`
-               "score_map": List[Tensor] with each tensor corresponding to the feature map of a specified
-                       feature level. Dim is the same as outputs["score_map"].
+               "score_map": List of List[Tensor]. The first List corresponds to the batch size and the
+                       second List corresponds the feature level. Each Tensor's shape should be [Hi, Wi].
                        
         Returns:
             loss_dict (Dict[str, FloatTensor]): key is the name for loss and value is the corresponding
