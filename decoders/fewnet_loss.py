@@ -157,13 +157,13 @@ class FewNetLoss(nn.Module):
         Notes:
             Since label is not necessary for text detection, so we ignore the "label" key in `targets`.
         """
-        loss_dict = {}
+        loss, loss_dict = 0, {}
         
         # step 1. loss for score_maps
         out_score_maps, tgt_score_maps = outputs.pop("score_map"), targets.pop("score_map")
         loss_score_map = self.loss_score_map(out_score_maps, tgt_score_maps)
-        loss_dict.update(dict(
-            loss_score_map=self.weight_loss_score_map * loss_score_map))
+        loss_dict.update(
+            loss_score_map=self.weight_loss_score_map * loss_score_map)
         
         # step 2. matching between outputs and targets
         # Now, outputs and targets contain no score_map
@@ -175,8 +175,8 @@ class FewNetLoss(nn.Module):
         # step 3. loss for logits
         loss_logits = self.loss_logits_func(outputs_matched["logits"])
         N = outputs["logits"].shape[0] * outputs["logits"].shape[1]
-        loss_dict.update(dict(
-            loss_logits=self.weight_loss_logits * loss_logits/N))
+        loss_dict.update(
+            loss_logits=self.weight_loss_logits * loss_logits/N)
         
         # step 4. loss for rotated boxes -- 注意 gwd_loss 的计算中，是否可以针对 normalized coords.
         N_r = outputs_matched["boxes"].shape[0]
@@ -188,9 +188,12 @@ class FewNetLoss(nn.Module):
         )
         loss_rbox = self.loss_rbox_func(outputs_rbox, tgt_rbox,
                                         reduction_override=self.rbox_reduction)
-        loss_dict.update(dict(
-            loss_rbox=self.weight_loss_rbox * loss_rbox / N_r))
-        return loss_dict
+        loss_dict.update(
+            loss_rbox=self.weight_loss_rbox * loss_rbox / N_r)
+        
+        for _ in loss_dict.values():
+            loss += _
+        return loss, loss_dict
     
     
     def gen_output_matched(self, outputs, indices):
