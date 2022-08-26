@@ -143,7 +143,7 @@ class FewNetLoss(nn.Module):
               "score_map": List of Tensor with dim [bs, Hi, Wi] with point in a tensor
                        representing its importance.
              
-            targets (Dict[List[Union[Tensor, List[Tensor]]]]): a dict containing at least these entries:
+            targets (Dict[str, List[Union[Tensor, List[Tensor]]]]): a dict containing at least these entries:
                "boxes": List of Tensor with dim [num_tgt_boxes_i, 4] for the normalized boxes coordination
                "angle": List of Tensor with dim [num_tgt_boxes_i, 1] for the angle for each boxes.
                        Format should be `le135`
@@ -204,11 +204,11 @@ class FewNetLoss(nn.Module):
         )
         sizes = [len(elem[0]) for elem in indices]
         batch_idx = torch.cat([ torch.full((s,), i) for i, s in enumerate(sizes)])
-        src_idx = torch.cat([ src_indice for (src_indice, _) in indices])
+        src_idx = torch.cat([src_indice for (src_indice, _) in indices])
         
         t = OrderedDict()  # [num_tgt_boxes, ...]
         for k in outputs.keys():
-            t[k] = outputs[batch_idx, src_idx]
+            t[k] = outputs[k][batch_idx, src_idx]
         return t
     
     def gen_target_matched(self, targets, indices):
@@ -222,11 +222,11 @@ class FewNetLoss(nn.Module):
             "Call this function after self.matcher please"
         )
         _targets = OrderedDict()
-        for k in targets[0].keys():
+        for k in targets.keys():
             _targets[k] = torch.stack([
-                F.pad(input=target[k], pad=(0, 0, 0, self.max_target_num - target[k].shape[0]))
-                for target in targets
-            ])  # [batch_size, max_num_targest, ...]
+                F.pad(input=target, pad=(0, 0, 0, self.max_target_num - target[k].shape[0]))
+                for target in targets[k]
+            ])
             
         # Following code is similar to `self.gen_output_matched`
         sizes = [len(elem[0]) for elem in indices]
@@ -235,7 +235,7 @@ class FewNetLoss(nn.Module):
 
         t = OrderedDict()  # [num_tgt_boxes, ...]
         for k in _targets.keys():
-            t[k] = _targets[batch_idx, tgt_idx]
+            t[k] = _targets[k][batch_idx, tgt_idx]
         return t
 
     def loss_score_map(self, out_score_maps: List[Tensor], tgt_score_maps: List[Tensor]):
