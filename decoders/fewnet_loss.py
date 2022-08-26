@@ -257,6 +257,8 @@ class FewNetLoss(nn.Module):
             src_tgt_score_maps (List[List[Tensor]]): First list represents the batch_size and the
               second list represents feature level. Each tensor's shape should be [Hi, Wi]
               
+            feat_level_num (int): number of feature level, used to check the tgt_score_maps.
+        
         Returns:
             tgt_score_maps (List[Tensor]): This list represents the different feature level, and
               each tensor's shape should be [B, Hi, Wi].

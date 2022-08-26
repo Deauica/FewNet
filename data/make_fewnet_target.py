@@ -133,7 +133,7 @@ class MakeFewNetTarget(Configurable):
             )
         )
         if self.need_norm:  # 这里的归一化，最大值，不是 data["shape"], 而是 data["image"].shape
-            max_H, max_W = data["image"].shape[-2:]
+            max_H, max_W = data["image"].shape[:-1]  # DB do not convert to (C, H, W) to keep (H, W, C)
             rboxes[:, [0, 2]] = rboxes[:, [0, 2]] / max_W
             rboxes[:, [1, 3]] = rboxes[:, [1, 3]] / max_H
             # theta 不需要做 归一化，直接采用 弧度制就可以了
