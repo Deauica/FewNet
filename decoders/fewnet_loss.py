@@ -179,7 +179,7 @@ class FewNetLoss(nn.Module):
             loss_logits=self.weight_loss_logits * loss_logits/N))
         
         # step 4. loss for rotated boxes -- 注意 gwd_loss 的计算中，是否可以针对 normalized coords.
-        N_r = outputs_matched.shape[0]
+        N_r = outputs_matched["boxes"].shape[0]
         outputs_rbox = torch.cat(  # [num_tgt_boxes, 5]
             [outputs_matched["boxes"], outputs_matched["angle"]], dim=-1
         )
