@@ -247,7 +247,14 @@ class FewNetLoss(nn.Module):
     def loss_score_map(self, out_score_maps: List[Tensor], tgt_score_maps: List[Tensor]):
         N_f = 0
         loss_sum = 0
+        
+        print("pre tgt_score_maps: {}".format([
+            [t_f.shape for t_f in t]
+            for t in tgt_score_maps  # data element
+        ]))
         tgt_score_maps = self.transform_tgt_score_maps(tgt_score_maps)  # add transform
+        print("after tgt_score_maps: {}".format([t.shape for t in tgt_score_maps]))
+        
         for _, (out_score_map, tgt_score_map) in enumerate(zip(out_score_maps, tgt_score_maps)):
             assert out_score_map.shape == tgt_score_map.shape, (
                 """
