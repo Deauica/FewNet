@@ -53,7 +53,6 @@ class PositionalEmbedding(nn.Module):
                 
                 table_weight = torch.zeros(
                     [self.max_pos_len, self.pos_dim], requires_grad=False,
-                    device=self.device
                 )
                 table_weight[:, 0::2] = torch.sin(pos_mat / i_mat)  # 自动 broadcast
                 table_weight[:, 1::2] = torch.cos(pos_mat / i_mat)
