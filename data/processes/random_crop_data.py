@@ -38,7 +38,9 @@ class RandomCropData(DataProcess):
         for line in data['polys']:
             poly = ((np.array(line['points']) -
                      (crop_x, crop_y)) * scale).tolist()
-            if not self.is_poly_outside_rect(poly, 0, 0, w, h):
+            # if not self.is_poly_outside_rect(poly, 0, 0, w, h):
+            #     lines.append({**line, 'points': poly})
+            if self.is_poly_in_rect(poly, 0, 0, w, h):  # use in rect instead of not outside_rect
                 lines.append({**line, 'points': poly})
         data['polys'] = lines
 

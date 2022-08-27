@@ -1,6 +1,6 @@
 """ buffer.py """
 
-stage = 21  # 7
+stage = 22  # 7
 
 if stage == 1:
     """
@@ -453,3 +453,50 @@ elif stage == 21:
             len(valid_img_list), len(invalid_img_list)
         )
     )
+
+elif stage == 22:
+    """
+    debug for MakeFewNetTarget due to error raised from MakeFewNetTarget.__call__
+    
+    This bug may come from RandomCropData.
+    """
+    config_file = "experiments/fewnet/td500_resnet18.yaml"
+    cmd = {
+        "batch_size": 2,
+        "num_workers": 0,
+        "debug": True,
+        "name": "make_target_debug"
+    }
+    
+    from concern.config import Config, Configurable
+    from train import setup_seed
+    
+    setup_seed(seed=20)  # setup seed for reproducibility
+    conf = Config()
+    experiment_args = conf.compile(conf.load(config_file))['Experiment']
+    experiment_args.update(cmd=cmd)
+    experiment = Configurable.construct_class_from_config(experiment_args)
+    
+    train_data_loader = experiment.train.data_loader
+    for batch in train_data_loader:
+        pass
+
+elif stage == 23:
+    """
+    verify the correctness of MakeFewNetTarget.distance_point2line
+    """
+    import numpy as np
+    
+    xs = np.arange(0, 4, 1)  # width == 4
+    ys = np.arange(0, 5, 1)  # height == 5
+    print(xs, ys)
+    xs, ys = np.meshgrid(xs, ys, indexing="xy")  # xs: col, ys: row
+    print(xs, ys)
+
+elif stage == 24:
+    """ create a toy dataset to check our model's convergence """
+    pass
+
+elif stage == 25:
+    """ check the optimizer in pytorch """
+    pass

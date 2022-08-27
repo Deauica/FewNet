@@ -58,6 +58,7 @@ class Trainer:
             self.steps = epoch * self.total + iter_delta
 
         # Init start epoch and iter
+        # define the parameters by your personal model
         optimizer = self.experiment.train.scheduler.create_optimizer(
             model.parameters())
 

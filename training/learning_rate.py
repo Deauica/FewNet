@@ -97,6 +97,11 @@ class DecayLearningRate(Configurable):
     def get_learning_rate(self, epoch, step=None):
         rate = np.power(1.0 - epoch / float(self.epochs + 1), self.factor)
         return rate * self.lr
+    
+
+class FewNetLearningRate(Configurable):
+    """ Learning Rate for Few Could be Better than All """
+    pass
 
 
 class BuitlinLearningRate(Configurable):
@@ -116,7 +121,7 @@ class BuitlinLearningRate(Configurable):
 
     def get_learning_rate(self, epoch, step=None):
         if self.scheduler is None:
-            raise 'learning rate not ready(prepared with optimizer) '
+            raise RuntimeError('learning rate not ready(prepared with optimizer) ')
         self.scheduler.last_epoch = epoch
         # return value of gt_lr is a list,
         # where each element is the corresponding learning rate for a

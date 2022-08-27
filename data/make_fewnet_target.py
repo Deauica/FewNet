@@ -11,8 +11,6 @@ This file generates target for "Few Could be Better than All".
 
 在明确 np.meshgrid 采用的 indexing 是 "xy" 之后，统一规整到 (x, y) 而不是 (r, c) 的表示.
 
-显然，当前这个 距离计算，有些问题。 -- 没有获取到 真实的距离，很小。
-
 目前的效果，不是太理想。 和 作者 所设想的 有一定的出入。
 """
 import cv2
@@ -124,18 +122,12 @@ class MakeFewNetTarget(Configurable):
             polygon = np.reshape(polygon, [8])
             rbox = poly2obb_np(polygon, version=self.angle_version)
             rboxes.append(rbox)
-        rboxes = np.array(rboxes, dtype=np.float32)
+        rboxes = np.array(rboxes, dtype=np.float32).reshape([-1, 5])  # [cx, cy, w, h, theta]
         
-        assert rboxes.shape[-1] == 5, (
-            "descriptor for each rbox should be: (cx, cy, w, h, theta),"
-            "However, Your rboxes.shape: {} and rboxes[0] is: {}".format(
-                rboxes.shape, rboxes[0]
-            )
-        )
         if self.need_norm:  # 这里的归一化，最大值，不是 data["shape"], 而是 data["image"].shape
             max_H, max_W = data["image"].shape[:-1]  # DB do not convert to (C, H, W) to keep (H, W, C)
-            rboxes[:, [0, 2]] = rboxes[:, [0, 2]] / max_W
-            rboxes[:, [1, 3]] = rboxes[:, [1, 3]] / max_H
+            rboxes[:, 0:-1:2] = rboxes[:, 0:-1:2] / max_W  # increase robustness of indexing
+            rboxes[:, 1::2] = rboxes[:, 1::2] / max_H
             # theta 不需要做 归一化，直接采用 弧度制就可以了
         
         data["boxes"] = rboxes[:, :4]
@@ -177,22 +169,41 @@ class MakeFewNetTarget(Configurable):
             aug_polys.append(np.array(t_poly))
     
         return aug_polys
-
+    
     @staticmethod
-    def distance_point2line(xs, ys, p1, p2):
+    def point2line(xs, ys, point_1, point_2):
+        """Compute the distance from point to a line. This function is adapted
+        from mmocr -- base_textdet_targets.py
+        Args:
+            xs (ndarray): The x coordinates of size hxw.  -- width
+            ys (ndarray): The y coordinates of size hxw.  -- height
+            point_1 (ndarray): The first point with shape 1x2.
+            point_2 (ndarray): The second point with shape 1x2.  -- (x, y) coordinates
+        Returns:
+            result (ndarray): The distance matrix of size hxw.
         """
-        Modified from:
-        https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-        """
-        px, py = p1[0] - p2[0], p1[1] - p2[1]  # xs, ys is row-col type
-        norm = px * px + py * py + 1e-6  # eps = 1e-6
-        u = ((xs - p1[0]) * px + (ys - p1[1]) * py) / float(norm)
-        np.clip(u, 0, 1)
-        x = p1[0] + u * px
-        y = p1[1] + u * py
-        dx = x - xs
-        dy = y - ys
-        return np.sqrt(dx * dx + dy * dy)
+        # suppose a triangle with three edge abc with c=point_1 point_2
+        # a^2
+        a_square = np.square(xs - point_1[0]) + np.square(ys - point_1[1])
+        # b^2
+        b_square = np.square(xs - point_2[0]) + np.square(ys - point_2[1])
+        # c^2
+        c_square = np.square(point_1[0] - point_2[0]) + np.square(point_1[1] -
+                                                                  point_2[1])
+        # -cosC=(c^2-a^2-b^2)/2(ab)
+        neg_cos_c = (
+            (c_square - a_square - b_square) /
+            (np.finfo(np.float32).eps + 2 * np.sqrt(a_square * b_square)))
+        # sinC^2=1-cosC^2
+        square_sin = 1 - np.square(neg_cos_c)
+        square_sin = np.nan_to_num(square_sin)
+        # distance=a*b*sinC/c=a*h/c=2*area/c
+        result = np.sqrt(a_square * b_square * square_sin /
+                         (np.finfo(np.float32).eps + c_square))
+        # set result to minimum edge if C<pi/2
+        result[neg_cos_c < 0] = np.sqrt(np.fmin(a_square,
+                                                b_square))[neg_cos_c < 0]
+        return result
     
     def gen_single_score_map(self, canvas, polys):
         import cv2
@@ -223,28 +234,34 @@ class MakeFewNetTarget(Configurable):
             dist_point_lines = np.zeros([len(poly), *tiny_mask.shape])
             xs = np.arange(start=0, stop=tiny_W)  # x, ... width
             ys = np.arange(start=0, stop=tiny_H)  # y, ... height
-            xs, ys = np.meshgrid(xs, ys, indexing="xy")  # meshgrid, [height, width] for ret xs and ys
+            xs, ys = np.meshgrid(xs, ys, indexing="xy")  # meshgrid, xs - width, ys - height
             for i in range(len(poly)):
                 j = (i + 1) % len(poly)
                 point_1, point_2 = poly[i], poly[j]
-                dist_point_line = self.distance_point2line(xs, ys, point_1, point_2)
+                dist_point_line = self.point2line(xs, ys, point_1, point_2)
                 dist_point_lines[i] = dist_point_line
             dist_point_lines = dist_point_lines.min(axis=0)  # [tiny_H, tiny_W]
+            # Though the coordinates is different, However,
+            # the value in dist_point_lines can also reflect the distance
+            # from this point to line.
             
             # obtain first-step xs, ys, max_radius
             positive_point_lines = dist_point_lines * positive_mask  # [tiny_H, tiny_W]
-            nk = min(np.sum(positive_mask).astype(np.int), self.max_num_gau_center)
+            nk = min(np.sum(positive_mask).astype(np.int32), self.max_num_gau_center)
             nk_ind, nk_val = self.topk_by_partition(
                 positive_point_lines.flatten(), nk, axis=0, ascending=False,
             )
-            nk_xs, nk_ys = nk_ind % tiny_W, nk_ind // tiny_W  # xs, ys
+            nk_xs, nk_ys = nk_ind % tiny_W, nk_ind // tiny_W  # nk_xs: width, nk_ys: height
             t_mask = nk_val > self.min_radius_limit
             nk_val = nk_val[t_mask]  # now nk_val only contain value greater than min_radius_limit
-            nk_xs, nk_ys = nk_xs[t_mask], nk_ys[t_mask]
+            nk_xs, nk_ys = nk_xs[t_mask], nk_ys[t_mask]  # check
             
             # generate center and radius
-            t_scale = 0.5 + np.random.rand(*nk_val.shape) * 0.5
-            poly_radius = self.min_radius_limit + t_scale * (nk_val - self.min_radius_limit)
+            # t_scale = 0.5 + np.random.rand(*nk_val.shape) * 0.5
+            t_scale = np.ones_like(nk_val)
+            poly_radius = np.ceil(
+                self.min_radius_limit + t_scale * (nk_val - self.min_radius_limit)
+            )
             poly_gau_candinates = [
                 ((xs + x_min, ys + y_min), radius)  # radius should be integer
                 for xs, ys, radius in zip(nk_xs, nk_ys, poly_radius.astype(np.int32))
@@ -268,7 +285,7 @@ class MakeFewNetTarget(Configurable):
         """
         if not ascending:
             input *= -1
-        ind = np.argpartition(input, k, axis=axis)
+        ind = np.argpartition(input, k - 1, axis=axis)  # use (k - 1) instead of k for extreme situation
         ind = np.take(ind, np.arange(k), axis=axis)  # k non-sorted indices
         input = np.take_along_axis(input, ind, axis=axis)  # k non-sorted values
     
