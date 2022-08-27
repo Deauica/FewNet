@@ -147,7 +147,6 @@ class FeatureGrouping(nn.Module):
             encoder_layer=self.encoder_layer, num_layers=self.num_encoder_layer,
             norm=nn.LayerNorm(self.model_dim)
         )
-        self.device = "cpu" if not torch.cuda.is_available() else "cuda"
     
     def forward(self, descriptors, coordinates, *args, **kwargs):
         """ Perform the Feature Grouping.
@@ -242,7 +241,9 @@ def build_fewnet(
         num_encoder_layer=4, model_dim=256, nhead=8,  # model_dim is 256 instead of 512
         pe_type="sin_cos", num_dims=3,
         # param for fewnet
-        target_mode="rbox", is_coord_norm=True
+        target_mode="rbox", is_coord_norm=True,
+        
+        device=None
 ):
     conv_fpn = FPN(
         need_conv_fpn=need_conv_fpn,
@@ -260,4 +261,9 @@ def build_fewnet(
         target_mode=target_mode, is_coord_norm=is_coord_norm,
         inner_channels=inner_channels
     )
-    return fewnet
+    
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    assert "cuda" in device or "cpu" in device
+    
+    return fewnet.to(device)

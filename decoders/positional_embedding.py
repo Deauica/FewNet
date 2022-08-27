@@ -17,7 +17,6 @@ class PositionalEmbedding(nn.Module):
         self.num_dims = num_dims
         self.embed_type = embed_type
         self.kwargs = kwargs
-        self.device = "cpu" if not torch.cuda.is_available() else "cuda"
         self.model_dim = self.kwargs.get("model_dim", self.pos_dim)
         self.embed_tables = self.build_embed_table()
         self.static = None  # whether pe_table will be updated by bp
@@ -37,7 +36,7 @@ class PositionalEmbedding(nn.Module):
             "However, the num_dims: {}".format(coords.shape, self.num_dims)
         )
         
-        out = torch.zeros([*coords.shape[1:], self.pos_dim]).to(coords[0].device)
+        out = torch.zeros([*coords.shape[1:], self.pos_dim])
         for i in range(coords.shape[0]):
             out += self.embed_tables[i](coords[i])
         return out
