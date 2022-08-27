@@ -248,13 +248,6 @@ class FewNetLoss(nn.Module):
         N_f = 0
         loss_sum = 0
         
-        print("pre tgt_score_maps: {}".format([
-            [t_f.shape for t_f in t]
-            for t in tgt_score_maps  # data element
-        ]))
-        tgt_score_maps = self.transform_tgt_score_maps(tgt_score_maps)  # add transform
-        print("after tgt_score_maps: {}".format([t.shape for t in tgt_score_maps]))
-        
         for _, (out_score_map, tgt_score_map) in enumerate(zip(out_score_maps, tgt_score_maps)):
             assert out_score_map.shape == tgt_score_map.shape, (
                 """
@@ -272,39 +265,6 @@ class FewNetLoss(nn.Module):
                 input=out_score_map, target=tgt_score_map, reduction="sum"
             )  # shape of out_score_map should be same as tgt_score_map
         return loss_sum / N_f
-    
-    @staticmethod
-    def transform_tgt_score_maps(src_tgt_score_maps, feat_level_num=3):
-        r""" Perform preprocess to `src_tgt_score_maps` to keep it complied with out_score_maps
-        
-        Args:
-            src_tgt_score_maps (List[List[Tensor]]): First list represents the batch_size and the
-              second list represents feature level. Each tensor's shape should be [Hi, Wi]
-              
-            feat_level_num (int): number of feature level, used to check the tgt_score_maps.
-        
-        Returns:
-            tgt_score_maps (List[Tensor]): This list represents the different feature level, and
-              each tensor's shape should be [B, Hi, Wi].
-        """
-        tgt_score_maps = []
-        for t_score_maps in zip(*src_tgt_score_maps):
-            tgt_score_maps.append(
-                torch.stack(t_score_maps, dim=0)  # [B, Hi, Wi]
-            )
-            
-        assert len(tgt_score_maps) == feat_level_num, (
-            "Please check your input data, since your len(tgt_score_maps): {}".format(
-                len(tgt_score_maps)
-            )
-        )
-        assert tgt_score_maps[0][0].shape == src_tgt_score_maps[0][0].shape, (
-            "some errors since, "
-            "shape of tgt_score_maps[0][0]: {} while src_tgt_score_maps[0][0]: {}".format(
-                tgt_score_maps[0][0].shape, src_tgt_score_maps[0][0].shape
-            )
-        )
-        return tgt_score_maps
     
     def loss_logits(self, outputs_logits):
         """Calculate bce loss for logits in outputs.
