@@ -101,11 +101,11 @@ class FeatureSampling(nn.Module):
                 dim=1, index=torch.tile(topk_indices.unsqueeze(dim=-1), (C, ))
             )
             topk_indices_r, topk_indices_c = (
-                topk_indices // significance_map.shape[-1],
-                topk_indices % significance_map.shape[-1]   # [B, nk]
+                torch.div(topk_indices, significance_map.shape[-1], rounding_mode="floor"),
+                torch.remainder(topk_indices, significance_map.shape[-1])
             )
             topk_coords = torch.cat([
-                torch.full([B, nk, 1], i),  # self.device
+                torch.full([B, nk, 1], i, device=topk_indices_r.device),  # self.device
                 topk_indices_r.unsqueeze(dim=-1), topk_indices_c.unsqueeze(dim=-1)],
                 dim=-1
             )  # [B, nk, 3], (feature_level, r, c)
