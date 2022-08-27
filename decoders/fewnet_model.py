@@ -63,7 +63,6 @@ class FeatureSampling(nn.Module):
         self.Nk = nk
         
         self.args, self.kwargs = args, kwargs
-        self.device = "cpu" if not torch.cuda.is_available() else "cuda"
     
     def forward(self, features, *args, **kwargs):
         r""" Generate Significance map for the input features.
@@ -106,7 +105,7 @@ class FeatureSampling(nn.Module):
                 topk_indices % significance_map.shape[-1]   # [B, nk]
             )
             topk_coords = torch.cat([
-                torch.full([B, nk, 1], i, device=self.device),
+                torch.full([B, nk, 1], i),  # self.device
                 topk_indices_r.unsqueeze(dim=-1), topk_indices_c.unsqueeze(dim=-1)],
                 dim=-1
             )  # [B, nk, 3], (feature_level, r, c)
