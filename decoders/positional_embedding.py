@@ -37,7 +37,7 @@ class PositionalEmbedding(nn.Module):
             "However, the num_dims: {}".format(coords.shape, self.num_dims)
         )
         
-        out = torch.zeros([*coords.shape[1:], self.pos_dim]).to(self.device)
+        out = torch.zeros([*coords.shape[1:], self.pos_dim]).to(coords[0].device)
         for i in range(coords.shape[0]):
             out += self.embed_tables[i](coords[i])
         return out
