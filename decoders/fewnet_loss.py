@@ -251,9 +251,9 @@ class FewNetLoss(nn.Module):
         for _, (out_score_map, tgt_score_map) in enumerate(zip(out_score_maps, tgt_score_maps)):
             assert out_score_map.shape == tgt_score_map.shape, (
                 """
-                current i: {}, \n
-                shape of out_score_maps: {}, \n
-                shape of tgt_score_maps: {} \n
+                current i: {},
+                shape of out_score_maps: {},
+                shape of tgt_score_maps: {}
                 """.format(
                     _,
                     [t.shape for t in out_score_maps],
@@ -289,6 +289,12 @@ class FewNetLoss(nn.Module):
         assert len(tgt_score_maps) == feat_level_num, (
             "Please check your input data, since your len(tgt_score_maps): {}".format(
                 len(tgt_score_maps)
+            )
+        )
+        assert tgt_score_maps[0][0].shape == src_tgt_score_maps[0][0].shape, (
+            "some errors since, "
+            "shape of tgt_score_maps[0][0]: {} while src_tgt_score_maps[0][0]: {}".format(
+                tgt_score_maps[0][0].shape, src_tgt_score_maps[0][0].shape
             )
         )
         return tgt_score_maps
