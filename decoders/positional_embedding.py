@@ -63,5 +63,5 @@ class PositionalEmbedding(nn.Module):
         else:
             raise ValueError("Please check your embed type: {}".foramt(self.embed_type))
         
-        return embed_tables
+        return nn.ModuleDict(embed_tables)
 
