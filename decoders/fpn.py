@@ -8,6 +8,8 @@ import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork as _VISION_FPN
 from collections import OrderedDict
 
+import warnings
+
 def weight_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -125,6 +127,7 @@ class VisionFPN(nn.Module):
             in_channels_list=in_channels, out_channels=inner_channels,
             
         ) if self.need_conv_fpn else None
+        warnings.simplefilter("ignore")  # ignore warnings in VisionFPN
         
     def forward(self, features):
         f_odict = OrderedDict(
