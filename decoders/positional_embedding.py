@@ -38,7 +38,7 @@ class PositionalEmbedding(nn.Module):
         
         out = torch.zeros([*coords.shape[1:], self.pos_dim])
         for i in range(coords.shape[0]):
-            out += self.embed_tables[i](coords[i])
+            out += self.embed_tables[str(i)](coords[i])
         return out
         
     def build_embed_table(self):
@@ -57,7 +57,7 @@ class PositionalEmbedding(nn.Module):
                 table_weight[:, 0::2] = torch.sin(pos_mat / i_mat)  # 自动 broadcast
                 table_weight[:, 1::2] = torch.cos(pos_mat / i_mat)
                 embed_tables.update({
-                    k: nn.Embedding.from_pretrained(table_weight)
+                    str(k): nn.Embedding.from_pretrained(table_weight)
                 })
                 position_bias += self.max_pos_len  # 对 position_bias 加以更新
         else:
