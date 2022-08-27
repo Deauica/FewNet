@@ -248,7 +248,18 @@ class FewNetLoss(nn.Module):
         N_f = 0
         loss_sum = 0
         tgt_score_maps = self.transform_tgt_score_maps(tgt_score_maps)  # add transform
-        for out_score_map, tgt_score_map in zip(out_score_maps, tgt_score_maps):
+        for _, out_score_map, tgt_score_map in enumerate(zip(out_score_maps, tgt_score_maps)):
+            assert out_score_map.shape == tgt_score_map.shape, (
+                """
+                current i: {}, \n
+                shape of out_score_maps: {}, \n
+                shape of tgt_score_maps: {} \n
+                """.format(
+                    _,
+                    [t.shape for t in out_score_maps],
+                    [t.shape for t in tgt_score_maps]
+                )
+            )
             N_f += out_score_map.shape[-2] * out_score_map.shape[-1]
             loss_sum += F.smooth_l1_loss(
                 input=out_score_map, target=tgt_score_map, reduction="sum"
