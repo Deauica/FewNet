@@ -143,12 +143,14 @@ class FewNetLoss(nn.Module):
               "score_map": List of Tensor with dim [bs, Hi, Wi] with point in a tensor
                        representing its importance.
              
-            targets (Dict[str, List[Union[Tensor, List[Tensor]]]]): a dict containing at least these entries:
-               "boxes": List of Tensor with dim [num_tgt_boxes_i, 4] for the normalized boxes coordination
-               "angle": List of Tensor with dim [num_tgt_boxes_i, 1] for the angle for each boxes.
+            targets (Dict[str, Union[Tensor, List[Tensor]]]): a dict containing at least these entries:
+               "boxes": Tensor of shape [B, max_tgt_boxes, 4] with (cx, cy, w, h) for each rotated box.
+               "angle": Tensor of shape [B, max_tgt_boxes, 1] with angle for each rotated box.
                        Format should be `le135`
-               "score_map": List of List[Tensor]. The first List corresponds to the batch size and the
-                       second List corresponds the feature level. Each Tensor's shape should be [Hi, Wi].
+               "score_map": List of Tensor of shape [B, Hi, Wi]. The first List corresponds to the
+                       batch size and the shape for each element should be [B, Hi, Wi].
+               "num_tgt_boxes": Tensor of the length of batch_size. Each element represent the target
+                       boxes in the corresponding element.
                        
         Returns:
             loss_dict (Dict[str, FloatTensor]): key is the name for loss and value is the corresponding
@@ -158,6 +160,13 @@ class FewNetLoss(nn.Module):
             Since label is not necessary for text detection, so we ignore the "label" key in `targets`.
         """
         loss, loss_dict = 0, {}
+        
+        # step 0. pre-process for targets["boxes"] and targets["angle"] for historical issue
+        l_boxes, l_angles = [], []
+        for i, num_tgt_box in enumerate(targets["num_tgt_boxes"]):
+            l_boxes.append(targets["boxes"][i, :num_tgt_box])
+            l_angles.append(targets["angle"][i, :num_tgt_box])
+        targets["boxes"], targets["angle"] = l_boxes, l_angles  # List of [num_tgt_box, _]
         
         # step 1. loss for score_maps
         out_score_maps, tgt_score_maps = outputs.pop("score_map"), targets.pop("score_map")
@@ -249,17 +258,6 @@ class FewNetLoss(nn.Module):
         loss_sum = 0
         
         for _, (out_score_map, tgt_score_map) in enumerate(zip(out_score_maps, tgt_score_maps)):
-            assert out_score_map.shape == tgt_score_map.shape, (
-                """
-                current i: {},
-                shape of out_score_maps: {},
-                shape of tgt_score_maps: {}
-                """.format(
-                    _,
-                    [t.shape for t in out_score_maps],
-                    [t.shape for t in tgt_score_maps]
-                )
-            )
             N_f += out_score_map.shape[-2] * out_score_map.shape[-1]
             loss_sum += F.smooth_l1_loss(
                 input=out_score_map, target=tgt_score_map, reduction="sum"

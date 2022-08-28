@@ -462,7 +462,7 @@ elif stage == 22:
     """
     config_file = "experiments/fewnet/td500_resnet18.yaml"
     cmd = {
-        "batch_size": 2,
+        "batch_size": 1,
         "num_workers": 0,
         "debug": True,
         "name": "make_target_debug"
@@ -470,6 +470,16 @@ elif stage == 22:
     
     from concern.config import Config, Configurable
     from train import setup_seed
+    import os
+    
+    
+    if not os.path.join(".", "debug"):
+        os.mkdir(os.path.join(".", "debug"))
+    jpg_paths = [os.path.join("debug", jpg_file)
+                 for jpg_file in os.listdir(os.path.join(".", "debug"))
+                 if jpg_file.endswith(".jpg") or jpg_file.endswith(".JPG")]
+    for jpg_path in jpg_paths:
+        os.remove(jpg_path)
     
     setup_seed(seed=20)  # setup seed for reproducibility
     conf = Config()
@@ -499,4 +509,7 @@ elif stage == 24:
 
 elif stage == 25:
     """ check the optimizer in pytorch """
+    pass
+
+elif stage == 26:
     pass

@@ -19,9 +19,8 @@ define:
               - ['Resize', [0.5, 3.0]]
           only_resize: False
           keep_ratio: False
-        - class: RandomCropData
+        - class: RandomCropInstance  # from RandomCropData to RandomCropInstance
           size: [1280, 1280] # from 640 to 1280
-          max_tries: 10
         - class: MakeICDARData
         - class: MakeFewNetTarget  # make fewnet target 放在预处理的过程
 

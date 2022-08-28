@@ -8,7 +8,8 @@ import numpy as np
 import cv2
 
 import concern.config
-
+from torch.utils.data._utils.collate import default_collate, default_convert
+import torch.nn.functional as F
 
 def gaussian2D(radius, sigma=1, dtype=torch.float32, device='cpu'):
     """Generate 2D gaussian kernel.
@@ -199,54 +200,104 @@ class FewNetCollate(concern.config.Configurable):
         pass
     
     def __call__(self, batch):
-        """ 对默认的 collate_fn 按照 fewnet 的条件 进行稍微的更改， 使之符合 fewnetloss 的要求"""
+        """
+        对默认的 collate_fn 按照 fewnet 的条件 进行稍微的更改， 使之符合 fewnetloss 的要求，
+        且，在此基础上，要满足 DataParallel 对数据的 分割要求.
+        
+        Args:
+            batch (List[Dict]): a list of batch size with each element being a dict of these entries:
+              "image" (Union[Tensor, ndarray]): .shape == [3, Hi, Wi], different element may have different shape;
+              "score_map" (List[ndarray]): a list with different size for different feature leve;
+              "boxes" (ndarray): .shape == [num_tgt_boxes, 4], each element should be (cx, cy, w, h)
+              "angle" (ndarray): .shape == [num_tgt_boxes, 1], each element should be (angle) with respect
+                                  to specified angle version.
+                                  
+        Returns:
+            results (Dict[str, Union(Tensor, List[Tensor])]): a dict that can meet the need of data parallel
+               and also add a new key "num_tgt_boxes" with shape of [B, ], that could reflect the
+               number of target boxes for each item in batch.
+            
+        Notes:
+            1. boxes should be update since the shape of corresponding image may change;
+            2. results[k] should be List[Tensor] or Dict[str, Tensor] and the first dimension of Tensor
+               should be Batch_size so that it can be scattered properly by DataParallel.
+            3. currently, pad is only performed on bottom-right in "image" and bottom in
+               "boxes" and "angle".
+        """
         from collections import OrderedDict
-        from torch.utils.data._utils.collate import default_collate, default_convert
         
         result = OrderedDict()
         elem = batch[0]
         keys = elem.keys()
-        result["image"] = default_collate([item["image"] for item in batch])
-        for k in keys:  # 剩下的，我们直接拼接就可以
-            if k == "image":
+        
+        # for image and score_map
+        result["image"] = self.transform_image(  # [B, 3, max_h, max_w]
+            [item["image"] for item in batch]
+        )
+        result["score_map"] = []
+        feat_level_num = len(elem["score_map"])  # number of feature level
+        for i in range(feat_level_num):
+            result["score_map"].append(  # [B, max_hi, max_wi]
+                self.transform_image(
+                    [item["score_map"][i] for item in batch]
+                )
+            )
+            
+        # for boxes and angles
+        result["num_tgt_boxes"] = default_convert([len(item["boxes"]) for item in batch])
+        result["boxes"] = self.transform_boxes(
+            [item["boxes"] for item in batch]
+        )
+        result["angle"] = self.transform_boxes(
+            [item["angle"] for item in batch]
+        )
+        try:
+            if torch.max(result["boxes"]) > 1:  # no normalization performed before
+                max_H, max_W = result["image"].shape[-2:]
+                result["boxes"][:, 0:-1:2] = result["boxes"][:, 0:-1:2] / max_W
+                result["boxes"][:, 1::2] = result["boxes"][:, 1::2] / max_H
+        except RuntimeError as e:
+            if result["boxes"].shape[1] == 0:  # no boxes, nothing to do
+                print("no annotation for current box")
+                pass  # result["boxes"].shape should be [B, -1, 4], -1 can be 0
+            else:
+                raise RuntimeError(e)
+        
+        # for others
+        for k in keys:
+            if k in ["image", "score_map", "boxes", "angle"]:
                 continue
-            result[k] = default_convert([item[k] for item in batch])
-            if "score_map" in k:
-                result[k] = self.transform_tgt_score_maps(result[k])
+            result[k] = default_collate([item[k] for item in batch])
+        
         return result
-
-    @staticmethod
-    def transform_tgt_score_maps(src_tgt_score_maps, feat_level_num=3):
-        r""" Perform preprocess to `src_tgt_score_maps` to keep it complied with out_score_maps
-
-        Args:
-            src_tgt_score_maps (List[List[Tensor]]): First list represents the batch_size and the
-              second list represents feature level. Each tensor's shape should be [Hi, Wi]
-
-            feat_level_num (int): number of feature level, used to check the tgt_score_maps.
-
-        Returns:
-            tgt_score_maps (List[Tensor]): This list represents the different feature level, and
-              each tensor's shape should be [B, Hi, Wi].
-        """
-        tgt_score_maps = []
-        for t_score_maps in zip(*src_tgt_score_maps):
-            tgt_score_maps.append(
-                torch.stack(t_score_maps, dim=0)  # [B, Hi, Wi]
-            )
     
-        assert len(tgt_score_maps) == feat_level_num, (
-            "Please check your input data, since your len(tgt_score_maps): {}".format(
-                len(tgt_score_maps)
-            )
-        )
-        assert tgt_score_maps[0][0].shape == src_tgt_score_maps[0][0].shape, (
-            "some errors since, "
-            "shape of tgt_score_maps[0][0]: {} while src_tgt_score_maps[0][0]: {}".format(
-                tgt_score_maps[0][0].shape, src_tgt_score_maps[0][0].shape
-            )
-        )
-        return tgt_score_maps
-
+    @staticmethod
+    def transform_boxes(boxes):
+        """ boxes related """
+        box_shapes = np.array([box.shape for box in boxes])
+        max_num_tgt_boxes, _ = np.max(box_shapes, axis=0)  # _ is 4 or 1
+        if not isinstance(boxes[0], torch.Tensor):
+            boxes = default_convert(boxes)
+        
+        padded_boxes = torch.stack([
+            F.pad(box, pad=(0, 0, 0, max_num_tgt_boxes - box.shape[0]))
+            for box in boxes
+        ], dim=0)  # [B, max_num_tgt_boxes, _]
+        return padded_boxes
+    
+    @staticmethod
+    def transform_image(images):
+        img_shapes = np.array([image.shape for image in images])
+        max_H, max_W = np.max(img_shapes, axis=0)[-2:]  # [max_H, max_W]
+        if not isinstance(images[0], torch.Tensor):
+            images = default_convert(images)  # transform to torch.Tensor
+            
+        padded_images = torch.stack([  # pad in bottom-right
+            F.pad(img, pad=(0, max_W - img.shape[-1], 0, max_H - img.shape[1]),
+                  mode="constant", value=0)
+            for img in images
+        ], dim=0)  # [B, 3, max_H, max_W]
+        return padded_images
+    
 if __name__ == "__main__":
     pass

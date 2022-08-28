@@ -5,4 +5,5 @@ from .make_border_map import MakeBorderMap
 from .image_dataset import ImageDataset
 
 from .make_fewnet_target import MakeFewNetTarget  # mahy
-from .utils import *  # mahy
+from .utils import *   # mahy
+from .fewnet_random_crop import RandomCropInstance  # mahy

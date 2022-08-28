@@ -32,7 +32,7 @@ import numpy as np
 class MakeFewNetTarget(Configurable):
     # angle related
     angle_version = State(default="le135")  # version for the angle
-    need_norm = State(default=True)  # normalize for (x, y, w, h)
+    need_norm = State(default=False)  # normalize for (x, y, w, h), this will be performed in collate_fn
     bg_value = State(default=0)
     fg_value = State(default=0.7)  # fill background/foreground with {bg, fg}_value, respectively
     
@@ -55,7 +55,7 @@ class MakeFewNetTarget(Configurable):
     )  # resizer builder
     
     def __init__(self,
-                 angle_version="le135", need_norm=True,  # angle related
+                 angle_version="le135", need_norm=False,  # angle and coordinates related
                  bg_value=0, fg_value=0.78,
                  min_radius_limit=0, coef_gaussian=1, max_num_gau_center=50,  # gaussian related
                  strides=(8, 16, 32), resizer=None, resizer_builder=None, resizer_args=None,  # resizer

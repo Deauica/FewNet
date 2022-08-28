@@ -84,6 +84,9 @@ class ImageDataset(data.Dataset, Configurable):
         data = {}
         image_path = self.image_paths[index]
         img = cv2.imread(image_path, cv2.IMREAD_COLOR).astype('float32')
+        
+        print(image_path)
+        
         if self.is_training:
             data['filename'] = image_path
             data['data_id'] = image_path
