@@ -258,7 +258,7 @@ class FewNetCollate(concern.config.Configurable):
                 result["boxes"][:, 1::2] = result["boxes"][:, 1::2] / max_H
         except RuntimeError as e:
             if result["boxes"].shape[1] == 0:  # no boxes, nothing to do
-                print("no annotation for current box")
+                # print("no annotation for current box")
                 pass  # result["boxes"].shape should be [B, -1, 4], -1 can be 0
             else:
                 raise RuntimeError(e)

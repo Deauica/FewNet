@@ -11,7 +11,7 @@ from shapely.geometry import Polygon
 from concern.config import State, Configurable
 
 import cv2
-from math import ceil
+
 
 def poly2bbox(polygon) -> np.array:
     """Converting a polygon to a bounding box.

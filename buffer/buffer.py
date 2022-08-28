@@ -462,7 +462,7 @@ elif stage == 22:
     """
     config_file = "experiments/fewnet/td500_resnet18.yaml"
     cmd = {
-        "batch_size": 1,
+        "batch_size": 2,
         "num_workers": 0,
         "debug": True,
         "name": "make_target_debug"
