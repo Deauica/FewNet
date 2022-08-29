@@ -239,7 +239,7 @@ class FewNetLoss(nn.Module):
         )
         _targets = OrderedDict()
         for k in targets.keys():
-            if not k in keys:  # no operation is needed
+            if k not in keys:  # no operation is needed
                 continue
             
             _targets[k] = torch.stack([
