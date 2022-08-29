@@ -212,6 +212,14 @@ class RandomCropInstance(Configurable):
         assert 0 <= bbox[0] < bbox[2] <= w
         return img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
 
+    def is_poly_outside_rect(self, poly, x, y, w, h):
+        poly = np.array(poly)
+        if poly[:, 0].max() < x or poly[:, 0].min() > x + w:
+            return True
+        if poly[:, 1].max() < y or poly[:, 1].min() > y + h:
+            return True
+        return False
+    
     def transform(self, results: Dict) -> Dict:
         """Applying random crop on results.
         Args:
@@ -229,9 +237,11 @@ class RandomCropInstance(Configurable):
         if polygons:  # polygons should exists
             max_polyX, max_polyY = np.max(np.array([
                 np.max(polygon, axis=0) for polygon in polygons
+                if not self.is_poly_outside_rect(polygon, 0, 0, img_W, img_H)
             ]), axis=0)
             min_polyX, min_polyY = np.min(np.array([
                 np.min(polygon, axis=0) for polygon in polygons
+                if not self.is_poly_outside_rect(polygon, 0, 0, img_W, img_H)
             ]), axis=0)
             pad_left, pad_right = -min(min_polyX, 0), max(img_W - 1, max_polyX) - img_W + 1
             pad_top, pad_bottom = -min(min_polyY, 0), max(img_H - 1, max_polyY) - img_H + 1

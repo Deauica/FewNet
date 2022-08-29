@@ -462,12 +462,12 @@ elif stage == 22:
     
     change from RandomCropData to RandomCropInstance.
     """
-    config_file = "experiments/fewnet/td500_resnet18.yaml"
+    config_file = "experiments/fewnet/toy_dataset_toy_resnet18.yaml"
     cmd = {
         "batch_size": 2,
         "num_workers": 0,
         "debug": True,
-        "name": "make_target_debug"
+        "name": "random_crop_instance_test"
     }
     
     from concern.config import Config, Configurable
@@ -507,7 +507,6 @@ elif stage == 23:
 
 elif stage == 24:
     """ create a toy dataset to check our model's convergence """
-    
     pass
 
 elif stage == 25:
