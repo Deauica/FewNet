@@ -459,6 +459,8 @@ elif stage == 22:
     debug for MakeFewNetTarget due to error raised from MakeFewNetTarget.__call__
     
     This bug may come from RandomCropData.
+    
+    change from RandomCropData to RandomCropInstance.
     """
     config_file = "experiments/fewnet/td500_resnet18.yaml"
     cmd = {
@@ -505,6 +507,7 @@ elif stage == 23:
 
 elif stage == 24:
     """ create a toy dataset to check our model's convergence """
+    
     pass
 
 elif stage == 25:
