@@ -244,7 +244,7 @@ class FewNetCollate(concern.config.Configurable):
             )
             
         # for boxes and angles
-        result["num_tgt_boxes"] = default_convert([len(item["boxes"]) for item in batch])
+        result["num_tgt_boxes"] = torch.as_tensor([len(item["boxes"]) for item in batch])
         result["boxes"] = self.transform_boxes(
             [item["boxes"] for item in batch]
         )
