@@ -49,11 +49,15 @@ class DataLoader(Configurable, torch.utils.data.DataLoader):
                 drop_last=self.drop_last, collate_fn=self.collect_fn,
                 worker_init_fn=default_worker_init_fn)
         else:
+            """
+            set the pin_memory to False, due to:
+            https://blog.csdn.net/dou3516/article/details/122507467
+            """
             torch.utils.data.DataLoader.__init__(
                 self, self.dataset,
                 batch_size=self.batch_size, num_workers=self.num_workers,
                 drop_last=self.drop_last, shuffle=self.shuffle,
-                pin_memory=True, collate_fn=self.collect_fn,
+                pin_memory=False, collate_fn=self.collect_fn,
                 worker_init_fn=default_worker_init_fn)
         self.collect_fn = str(self.collect_fn)
 
