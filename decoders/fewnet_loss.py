@@ -11,8 +11,9 @@ Loss definition for ``Few Could be Better than All``,
 """
 
 
-from torch import Tensor, nn
+from torch import Tensor
 import torch
+from torch import nn
 import torch.nn.functional as F
 from collections import OrderedDict
 
@@ -22,7 +23,7 @@ from typing import Union
 from .gwd_loss import GDLoss
 
 
-def cost_boxes_func(out_boxes: Tensor, tgt_boxes: Tensor):
+def cost_bboxes_func(out_boxes: Tensor, tgt_boxes: Tensor):
     """Simplified cost function for bbox
     忽略 angle 的 boxes 的 cost 计算，
     1. 不需要计算 Wasserstein Distance, 没有 复杂的 协方差计算等；
@@ -95,28 +96,59 @@ def cost_angle_func(out_angle: Tensor, tgt_angle: Tensor):
     return cost_angle
 
 
+def cost_rbox_func(out_boxes: Tensor, tgt_boxes: Tensor, **kwargs):
+    """Currently, this function utilize GWD Loss as matcher metrics directly
+    
+    Args:
+        out_boxes (Tensor): a Tensor with shape (bs * num_queries, 5)
+        tgt_boxes (Tensor): a Tensor with shape (sum_num_tgt_boxes, 5)
+        
+    Returns:
+        cost_mat (Tensor): a two-dimensional Tensor of shape (bs * num_queries, sum_num_tgt_boxes)
+    """
+    assert out_boxes.shape[-1] == tgt_boxes.shape[-1] == 5, (
+        "shape of out_boxes and tgt_boxes: {}, {}".format(out_boxes.shape, tgt_boxes.shape)
+    )
+    tiled_H, tiled_W = out_boxes.shape[0], tgt_boxes.shape[0]
+    tiled_out_boxes = torch.tile(
+        out_boxes.unsqueeze(dim=1), dims=(1, tiled_W, 1)
+    )  # ensure the element in each row be same
+    tiled_tgt_boxes = torch.tile(
+        tgt_boxes.unsqueeze(dim=0), dims=(tiled_H, 1, 1)
+    )  # ensure the element in each col be same
+    loss_rbox_func = GDLoss(
+        loss_type=kwargs.get("rbox_loss_type", "gwd"),
+        fun=kwargs.get("rbox_fun", "log1p"),
+        tau=kwargs.get("rbox_tau", 1.0),
+        reduction="none"  # 这里仍然采用 reduction
+    )
+    cost_mat = loss_rbox_func(
+        tiled_out_boxes.flatten(0, 1), tiled_tgt_boxes.flatten(0, 1)
+    ).reshape(tiled_H, tiled_W)  #
+    return cost_mat
+
+
 class FewNetLoss(nn.Module):
     def __init__(self,
-                 weight_cost_logits=1.0, weight_cost_boxes=1.0, weight_cost_angle=1.0,
+                 weight_cost_logits=1.0, weight_cost_boxes=1.0,
                  weight_loss_score_map=1.0, weight_loss_logits=1.0, weight_loss_rbox=1.0,
                  max_target_num=100,
                  rbox_loss_type="gwd", rbox_fun="log1p", rbox_tau=1.0):
         super(FewNetLoss, self).__init__()
-        self.weight_cost_logits, self.weight_cost_boxes, self.weight_cost_angle = (
-            weight_cost_logits, weight_cost_boxes, weight_cost_angle
+        self.weight_cost_logits, self.weight_cost_boxes = (
+            weight_cost_logits, weight_cost_boxes
         )
         self.weight_loss_score_map, self.weight_loss_logits, self.weight_loss_rbox = (
             weight_loss_score_map, weight_loss_logits, weight_loss_rbox
         )
-        self.cost_logits_func, self.cost_boxes_func, self.cost_angle_func = (
-            cost_logits_func, cost_boxes_func, cost_angle_func
+        self.cost_logits_func, self.cost_boxes_func = (
+            cost_logits_func, cost_rbox_func  # cost_rbox_func
         )
         
         self.loss_logits_func = self.loss_logits
         self.matcher = HungarianMatcher(
             self.weight_cost_boxes, self.cost_boxes_func,
             self.weight_cost_logits, self.cost_logits_func,
-            self.weight_cost_angle, self.cost_angle_func
         )
         
         self.max_target_num = max_target_num

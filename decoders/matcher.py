@@ -16,21 +16,17 @@ class HungarianMatcher(nn.Module):
     2. outputs, targets 的形式 有所改变.
     """
 
-    def __init__(self,
-                 weight_boxes, cost_boxes_func,
-                 weight_logits, cost_logits_func,
-                 weight_angle=None, cost_angle_func=None):
-        """Creates the matcher
+    def __init__(self, weight_boxes, cost_boxes_func, weight_logits, cost_logits_func,):
+        """Creates the matcher. In this class definition, cost_boxes can may contain the cost
+        calculation for various box type, such as, bbox, rbox or bezier box.
         """
         super(HungarianMatcher, self).__init__()
         self.weight_boxes, self.cost_boxes_func = weight_boxes, cost_boxes_func
         self.weight_logits, self.cost_logits_func = weight_logits, cost_logits_func
-        self.weight_angle, self.cost_angle_func = weight_angle, cost_angle_func
         
-        assert (self.weight_angle != 0 and self.weight_boxes != 0
-                and self.weight_logits !=0), (
-            "weight_(angle, boxes, logits) can not be 0, but your weight: {}, {}, {}".format(
-                self.weight_boxes, self.weight_logits, self.weight_angle
+        assert (self.weight_boxes != 0 and self.weight_logits != 0), (
+            "weight_(boxes, logits) can not be 0, but your weight: {}, {}".format(
+                self.weight_boxes, self.weight_logits
             )
         )
 
@@ -65,12 +61,16 @@ class HungarianMatcher(nn.Module):
         
         # step 1. obtain out_{boxes, angle, logits}
         out_logits = outputs["logits"].flatten(0, 1).sigmoid()  # [bs * num_queries, 1]
-        out_boxes = outputs["boxes"].flatten(0, 1)  # [bs * num_queries, 4], normalized by model.forward
-        out_angle = outputs["angle"].flatten(0, 1)  # [bs * num_queries, 1]
+        
+        out_boxes = outputs["boxes"].flatten(0, 1)  # [bs * num_queries, 4], 4 for only simple bbox
+        out_angle = outputs["angle"].flatten(0, 1)  # [bs * num_queries, 1], 1 for only angle
+        out_boxes = torch.cat([out_boxes, out_angle], dim=1)  # [bs * num_queries, 5]
         
         # step 2. obtain tgt_{boxes, angle, logits}
         tgt_boxes = torch.cat(targets["boxes"], dim=0)  # [num_tgt_boxes_batch, 4] -- normalized
         tgt_angle = torch.cat(targets["angle"], dim=0)  # [num_tgt_boxes_batch, 1]
+        tgt_boxes = torch.cat([tgt_boxes, tgt_angle], dim=1)  # [num_tgt_boxes_batch, 5]
+        
         tgt_labels = (
             torch.cat(targets["label"], dim=0) if "label" in targets else
             torch.full_like(tgt_angle, 1)
@@ -78,10 +78,9 @@ class HungarianMatcher(nn.Module):
         
         # step 3. generate cost matrix
         cost_logits = self.cost_logits_func(out_logits, tgt_labels)
-        cost_angle = self.cost_angle_func(out_angle, tgt_angle)
         cost_boxes = self.cost_boxes_func(out_boxes, tgt_boxes)  # [bs * num_queries, num_tgt_boxes_batch]
-        cost_matrix = (self.weight_logits * cost_logits + self.weight_angle * cost_angle
-                       + self.weight_boxes * cost_boxes)  # [bs * num_queries, num_tgt_boxes_batch]
+        cost_matrix = (  # [bs * num_queries, num_tgt_boxes_batch]
+                self.weight_logits * cost_logits + self.weight_boxes * cost_boxes)
         cost_matrix = cost_matrix.reshape([bs, num_queries, -1]).cpu()
         
         # step 4. perform hungarian algo

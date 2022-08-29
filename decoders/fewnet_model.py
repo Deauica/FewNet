@@ -6,17 +6,22 @@ decoders/fewnet_loss.py.
 此外，在真实的执行过程中，这里仅仅只是 decoder 的部分，整体的网络架构参考：
 structure/model.py 中的 ``SegDetectorModel``.
 
-TODO 缺少了 部分的 针对 Module Initialization的代码。
 """
 
 import torch
 from torch import nn
 from collections import OrderedDict
 
-from .fpn import VisionFPN, weight_init
+from .fpn import VisionFPN
 from .positional_embedding import PositionalEmbedding
 
 FPN = VisionFPN  # feature pyramid network
+
+
+def _reset_parameters(module):
+    for p in module.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
 
 
 class CoordConv(nn.Module):  # CoordConv definition
@@ -61,9 +66,10 @@ class FeatureSampling(nn.Module):
         self.mlp_module = nn.Conv2d(
             in_channels=self.C, out_channels=1, kernel_size=1, stride=1)
         self.Nk = nk
-        
         self.args, self.kwargs = args, kwargs
-    
+        
+        _reset_parameters(self)
+        
     def forward(self, features, *args, **kwargs):
         r""" Generate Significance map for the input features.
         
@@ -146,6 +152,8 @@ class FeatureGrouping(nn.Module):
             encoder_layer=self.encoder_layer, num_layers=self.num_encoder_layer,
             norm=nn.LayerNorm(self.model_dim)
         )
+        
+        _reset_parameters(self)
     
     def forward(self, descriptors, coordinates, *args, **kwargs):
         """ Perform the Feature Grouping.
@@ -206,6 +214,8 @@ class FewNet(nn.Module):
             self.angle_head = nn.Linear(self.C, 1)
         else:
             pass
+        
+        _reset_parameters(self)  # Parameter initialization
         
     def forward(self, features, *args, **kwargs):
         out = OrderedDict()
