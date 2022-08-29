@@ -241,14 +241,13 @@ def build_fewnet(
         pe_type="sin_cos", num_dims=3,
         # param for fewnet
         target_mode="rbox", is_coord_norm=True,
-        
         device=None
 ):
     conv_fpn = FPN(
         need_conv_fpn=need_conv_fpn,
         in_channels=in_channels, inner_channels=inner_channels, bias=bias)
     feature_sampling = FeatureSampling(
-        inner_channels, coord_conv_module=coord_conv_module, nk=(256, 128, 64),
+        inner_channels, coord_conv_module=coord_conv_module, nk=nk,
         constrained_deform_pool_module=constrained_deform_pool_module
     )
     feature_grouping = FeatureGrouping(

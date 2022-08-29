@@ -1,5 +1,5 @@
 import:
-    - "experiments/fewnet/base_toy_dataset.yaml"
+    - "experiments/fewnet/base_td500.yaml"
 package: []
 define:
   - name: 'Experiment'
@@ -25,8 +25,8 @@ define:
         data_loader: 
             class: DataLoader
             dataset: ^train_data
-            batch_size: 4
-            num_workers: 4
+            batch_size: 16
+            num_workers: 16
             collect_fn:
                 class: FewNetCollate  # define user-defined collate
         checkpoint:
@@ -48,8 +48,8 @@ define:
                 # no momentum
             learning_rate:  
                 class: DecayLearningRate
-                epochs: 400
-        epochs: 400
+                epochs: 800
+        epochs: 800
 
     validation: &validate
         class: ValidationSettings

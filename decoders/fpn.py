@@ -10,7 +10,11 @@ from collections import OrderedDict
 
 import warnings
 
+
 def weight_init(m):
+    """
+    Current weight_init only applies to conv block and BatchNorm block.
+    """
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
         nn.init.kaiming_normal_(m.weight.data)
@@ -18,6 +22,8 @@ def weight_init(m):
     elif classname.find('BatchNorm') != -1:
         m.weight.data.fill_(1.)
         m.bias.data.fill_(1e-4)
+    else:
+        pass
         
         
 class DBFPN(nn.Module):
@@ -32,7 +38,7 @@ class DBFPN(nn.Module):
                  inner_channels=256,
                  bias=False,
                  ):
-        super(ConvFPN, self).__init__()
+        super(DBFPN, self).__init__()
         self.need_conv_fpn = need_conv_fpn
         if self.need_conv_fpn:
             self.up5 = nn.Upsample(scale_factor=2, mode='nearest')
@@ -123,19 +129,35 @@ class VisionFPN(nn.Module):
         self.in_channels, self.inner_channels = (
             in_channels, inner_channels
         )
-        self.fpn = _VISION_FPN(
-            in_channels_list=in_channels, out_channels=inner_channels,
-            
-        ) if self.need_conv_fpn else None
+        if self.need_conv_fpn:
+            self.fpn = _VISION_FPN(
+                in_channels_list=in_channels, out_channels=inner_channels,
+        
+            )
+        else:
+            self.fpn = nn.ModuleDict(OrderedDict([
+                (str(in_channel),
+                 nn.Conv2d(in_channels=in_channel, out_channels=inner_channels,
+                           kernel_size=3, stride=1, padding=1))
+                for in_channel in in_channels
+            ]
+            ))
         warnings.simplefilter("ignore")  # ignore warnings in VisionFPN
         
     def forward(self, features):
-        f_odict = OrderedDict(
-            [(str(i), features[i]) for i in range(len(features))]
+        f_odict = OrderedDict(  # features[i].shape == [B, C, H, W]
+            [(str(features[i].shape[1]), features[i]) for i in range(len(features))]
         ) if not isinstance(features, OrderedDict) else features
         
-        if self.fpn is not None:
+        if self.need_conv_fpn:
             f_odict = self.fpn(f_odict)
+        else:
+            f_odict = OrderedDict(
+                [
+                    (k, self.fpn[k](v))  # k is str of number of in_channel
+                    for k, v in f_odict.items()
+                ]
+            )
             
         return (
             f_odict.values() if not isinstance(features, OrderedDict)
