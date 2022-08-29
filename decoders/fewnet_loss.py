@@ -215,7 +215,7 @@ class FewNetLoss(nn.Module):
         
         # step 3. loss for logits
         loss_logits = self.loss_logits_func(outputs_matched["logits"])
-        N = outputs["logits"].shape[0] * outputs["logits"].shape[1]
+        N = outputs["logits"].shape[0] * outputs["logits"].shape[1]  # B * num_features
         loss_dict.update(
             loss_logits=self.weight_loss_logits * loss_logits/N)
         
@@ -294,7 +294,7 @@ class FewNetLoss(nn.Module):
         loss_sum = 0
         
         for _, (out_score_map, tgt_score_map) in enumerate(zip(out_score_maps, tgt_score_maps)):
-            N_f += out_score_map.shape[-2] * out_score_map.shape[-1]
+            N_f += torch.numel(out_score_map)  # B * Hi * Wi
             loss_sum += F.smooth_l1_loss(
                 input=out_score_map, target=tgt_score_map, reduction="sum"
             )  # shape of out_score_map should be same as tgt_score_map
