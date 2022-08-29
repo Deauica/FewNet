@@ -223,11 +223,15 @@ class FewNetLoss(nn.Module):
             t[k] = outputs[k][batch_idx, src_idx]
         return t
     
-    def gen_target_matched(self, targets, indices):
+    def gen_target_matched(self, targets, indices, keys=("boxes", "angle")):
         """Generate matched targets based on `targets` and `indices`.
-        
+        Args:
+            targets (Dict[str, Any]): source targets.
+            indices (List[Tuple]): returned value of self.matcher.
+            keys (Tuple[str]): containing the keys to be padded and matched.
+            
         Returns:
-            t (Dict[str, Tensor]):  a dict containing at least "bbox", "logits", "angle".
+            t (Dict[str, Tensor]):  a dict containing at least "bbox", "angle".
               dim of Tensor is [num_tgt_boxes, ...]
         """
         assert "score_map" not in targets, (
@@ -235,7 +239,7 @@ class FewNetLoss(nn.Module):
         )
         _targets = OrderedDict()
         for k in targets.keys():
-            if "image" in k:
+            if not k in keys:  # no operation is needed
                 continue
             
             _targets[k] = torch.stack([
