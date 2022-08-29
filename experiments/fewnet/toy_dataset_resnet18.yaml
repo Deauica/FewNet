@@ -1,5 +1,5 @@
 import:
-    - "experiments/fewnet/base_td500.yaml"
+    - "experiments/fewnet/base_toy_dataset.yaml"
 package: []
 define:
   - name: 'Experiment'
