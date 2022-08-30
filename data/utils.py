@@ -11,6 +11,7 @@ import concern.config
 from torch.utils.data._utils.collate import default_collate, default_convert
 import torch.nn.functional as F
 
+
 def gaussian2D(radius, sigma=1, dtype=torch.float32, device='cpu'):
     """Generate 2D gaussian kernel.
     Args:

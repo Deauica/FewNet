@@ -35,6 +35,9 @@ class Trainer:
         return model
 
     def update_learning_rate(self, optimizer, epoch, step):
+        """
+        所以，实际上 optimizer 所自定义的 learning rate 根本没有生效.
+        """
         lr = self.experiment.train.scheduler.learning_rate.get_learning_rate(
             epoch, step)
 
