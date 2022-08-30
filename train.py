@@ -80,6 +80,7 @@ def setup_seed(seed):
 if __name__ == '__main__':
     import os
     
+    # basic environment setting
     if not os.path.join(".", "debug"):
         os.mkdir(os.path.join(".", "debug"))
     jpg_paths = [os.path.join("debug", jpg_file)
@@ -87,6 +88,8 @@ if __name__ == '__main__':
                  if jpg_file.endswith(".jpg") or jpg_file.endswith(".JPG")]
     for jpg_path in jpg_paths:
         os.remove(jpg_path)
+        
+    print("CUDA_VISIBLE_DEVICES: {}".format(os.environ["CUDA_VISIBLE_DEVICES"]))
 
     # set manual seed to guarantee the reproducibility of training
     setup_seed(20)

@@ -23,6 +23,7 @@ import time
 def main():
     parser = argparse.ArgumentParser(description='Text Recognition Training')
     parser.add_argument('exp', type=str)
+    parser.add_argument('--name', type=str)  # add name parameter
     parser.add_argument('--batch_size', type=int,
                         help='Batch size for training')
     parser.add_argument('--resume', type=str, help='Resume from checkpoint')
