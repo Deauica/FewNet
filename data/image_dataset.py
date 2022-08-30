@@ -44,7 +44,8 @@ class ImageDataset(data.Dataset, Configurable):
             else:
                 image_path=[self.data_dir[i]+'/test_images/'+timg.strip() for timg in image_list]
                 print(self.data_dir[i])
-                if 'TD500' in self.data_list[i] or 'total_text' in self.data_list[i]:
+                if 'TD500' in self.data_list[i] or 'total_text' in self.data_list[i] \
+                        or "toy" in self.data_list[i]:
                     gt_path=[self.data_dir[i]+'/test_gts/'+timg.strip()+'.txt' for timg in image_list]
                 else:
                     gt_path=[self.data_dir[i]+'/test_gts/'+'gt_'+timg.strip().split('.')[0]+'.txt' for timg in image_list]
