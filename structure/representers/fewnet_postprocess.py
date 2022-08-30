@@ -16,10 +16,7 @@ class FewNetPostProcess(Configurable):
     """
     logits_threshold = State(default=0.5)  # 0.45 for IC15 and 0.5 for others
     angle_version = State(default="le135")
-    angle_minmax = dict(
-        oc=(0, np.pi / 2), le135=(-np.pi / 4, np.pi * 3 / 4),
-        le90=(-np.pi / 2, np.pi / 2)
-    )
+    
     
     def __init__(self, logits_threshold=0.5, angle_version="le135", **kwargs):
         super(FewNetPostProcess, self).__init__(**kwargs)
@@ -33,6 +30,11 @@ class FewNetPostProcess(Configurable):
                 setattr(self, param, val)
             else:
                 pass
+            
+        self.angle_minmax = dict(
+            oc=(0, np.pi / 2), le135=(-np.pi / 4, np.pi * 3 / 4),
+            le90=(-np.pi / 2, np.pi / 2)
+        )[self.angle_version]
     
     def represent(self, data, outputs, *args, **kwrags):
         r""" Generate quad version for boxes and proper scores.
@@ -62,28 +64,28 @@ class FewNetPostProcess(Configurable):
             
         #
         boxes_batch, scores_batch = [], []
-        for i, (out_logits, out_angle) in enumerate(zip(
-                outputs["logits"], outputs["angle"])):
+        for i, (out_logits, out_angle, out_boxes) in enumerate(zip(
+                outputs["logits"], outputs["angle"], outputs["boxes"])):
             logits_mask = out_logits > self.logits_threshold
             score = out_logits[logits_mask]  # [num_boxes, 1]
             
             # boxes related, angle is scaled to angle_minmax
             img_H, img_W = data["shape"][i]
-            angles = outputs["angle"][logits_mask]  # 2-dim vector, [num_boxes, 1]
+            angles = out_angle[logits_mask]  # 2-dim vector, [num_boxes, 1]
             angles = self.angle_minmax[0] + angles * (self.angle_minmax[1] - self.angle_minmax[0])
             
-            boxes = outputs["boxes"][logits_mask]  # 2-dim vector, [num_boxes, 4]
+            boxes = out_boxes[logits_mask]  # 2-dim vector, [num_boxes, 4]
             boxes[:, [0, 2]] = boxes[:, [0, 2]] * img_W
             boxes[:, [1, 3]] = boxes[:, [1, 3]] * img_H
             boxes = torch.cat(  # [num_candidates, 6], (cx, cy, w, h, theta, score)
-                [boxes, angles, score.unsqueeze(dim=-1)], dim=-1)
+                [boxes, angles, score.unsqueeze(dim=-1)], dim=-1).cpu().numpy()
             boxes = obb2poly_np(boxes, version=self.angle_version)  # [num_boxes, 9]
             
-            boxes = boxes[:, :-1]  # 2d tensor
+            boxes = boxes[:, :-1].reshape([len(boxes), -1, 2])  # 3d tensor, [num_boxes, num_points, 2]
             score = boxes[:, -1]  # 1d vector
             
-            boxes_batch.append(boxes.cpu().numpy())
-            scores_batch.append(score.cpu().numpy())
+            boxes_batch.append(boxes)
+            scores_batch.append(score)
         return boxes_batch, scores_batch
         
     __call__ = represent  # __call__ is represent
