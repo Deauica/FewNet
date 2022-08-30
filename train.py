@@ -89,7 +89,7 @@ if __name__ == '__main__':
     for jpg_path in jpg_paths:
         os.remove(jpg_path)
         
-    print("CUDA_VISIBLE_DEVICES: {}".format(os.environ["CUDA_VISIBLE_DEVICES"]))
+    print("CUDA_VISIBLE_DEVICES in python: {}".format(os.environ["CUDA_VISIBLE_DEVICES"]))
 
     # set manual seed to guarantee the reproducibility of training
     setup_seed(20)
