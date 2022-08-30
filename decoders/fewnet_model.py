@@ -95,7 +95,7 @@ class FeatureSampling(nn.Module):
                 feature = self.constrained_deform_pool_module(feature)  # (B, C, Hi/2, Wi/2)
                 
             # generate significance map
-            significance_map = self.mlp_module(feature).sigmoid().squeeze()  # (B, Hi/2, Wi/2)
+            significance_map = self.mlp_module(feature).sigmoid().squeeze(dim=1)  # (B, Hi/2, Wi/2)
             outputs.append(significance_map)
             
             # feature sampling

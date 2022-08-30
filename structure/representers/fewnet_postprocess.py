@@ -34,7 +34,7 @@ class FewNetPostProcess(Configurable):
             else:
                 pass
     
-    def represent(self, outputs, data, *args, **kwrags):
+    def represent(self, data, outputs, *args, **kwrags):
         r""" Generate quad version for boxes and proper scores.
         
         Args:
@@ -62,7 +62,7 @@ class FewNetPostProcess(Configurable):
             
         #
         boxes_batch, scores_batch = [], []
-        for i, out_logits, out_angle in enumerate(zip(
+        for i, (out_logits, out_angle) in enumerate(zip(
                 outputs["logits"], outputs["angle"])):
             logits_mask = out_logits > self.logits_threshold
             score = out_logits[logits_mask]  # [num_boxes, 1]
