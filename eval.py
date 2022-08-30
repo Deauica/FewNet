@@ -191,4 +191,8 @@ class Eval:
                     self.logger.info('%s : %f (%d)' % (key, metric.avg, metric.count))
 
 if __name__ == '__main__':
+    if "CUDA_VISIBLE_DEVICES" in os.environ:
+        print("CUDA_VISIBLE_DEVICES in python: {}".format(
+            os.environ["CUDA_VISIBLE_DEVICES"]
+        ))
     main()

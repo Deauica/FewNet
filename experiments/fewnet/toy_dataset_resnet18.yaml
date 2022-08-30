@@ -61,7 +61,7 @@ define:
                 batch_size: 1
                 num_workers: 16
                 collect_fn:
-                    class: FewNetCollate  # Collate fn is changed
+                    class: ICDARCollectFN  # Collate fn is changed
         visualize: false
         interval: 4500
         exempt: 1
