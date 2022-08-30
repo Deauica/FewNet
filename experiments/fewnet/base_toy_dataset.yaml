@@ -29,9 +29,9 @@ define:
   - name: validate_data
     class: ImageDataset
     data_dir:
-        - './datasets/TD_TR/TD500/'
+        - "datasets/toy_dataset/"
     data_list:
-        - './datasets/TD_TR/TD500/test_list.txt'
+        - "datasets/toy_dataset/test_list.txt"
     processes:
         - class: AugmentDetectionData
           augmenter_args:
@@ -39,5 +39,4 @@ define:
           only_resize: True
           keep_ratio: True
         - class: MakeICDARData
-        - class: MakeSegDetectionData
         - class: NormalizeImage
