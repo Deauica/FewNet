@@ -203,15 +203,20 @@ class FewNet(nn.Module):
         self.target_mode = target_mode
         self.is_coord_norm = is_coord_norm  # 对于 detection 来说，坐标是否是 normalized ?
         self.C = inner_channels  # out_channels for feature pyramid network
-        if self.target_mode.lower() == "rbox":
-            self.cls_head = nn.Linear(self.C, 1)  # cls_logits
+        if self.target_mode.lower() == "rbox":  # head should be combined
+            self.cls_head = nn.Sequential(
+                nn.Linear(self.C, 1),  # cls_logits
+                nn.Sigmoid()
+            )
             self.xywh_head = nn.Sequential(
                 nn.Linear(self.C, 4)
             ) if not self.is_coord_norm else nn.Sequential(
                 nn.Linear(self.C, 4),
                 nn.Sigmoid()
             )
-            self.angle_head = nn.Linear(self.C, 1)
+            self.angle_head = nn.Sequential(
+                nn.Linear(self.C, 1), nn.Sigmoid()
+            )
         else:
             pass
         

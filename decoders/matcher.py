@@ -16,7 +16,9 @@ class HungarianMatcher(nn.Module):
     2. outputs, targets 的形式 有所改变.
     """
 
-    def __init__(self, weight_boxes, cost_boxes_func, weight_logits, cost_logits_func,):
+    def __init__(self,
+                 weight_boxes, cost_boxes_func, weight_logits, cost_logits_func,
+                 angle_minmax=None):
         """Creates the matcher. In this class definition, cost_boxes can may contain the cost
         calculation for various box type, such as, bbox, rbox or bezier box.
         """
@@ -29,6 +31,7 @@ class HungarianMatcher(nn.Module):
                 self.weight_boxes, self.weight_logits
             )
         )
+        self.angle_minmax = angle_minmax
 
     @torch.no_grad()
     def forward(self, outputs, targets):
@@ -56,7 +59,16 @@ class HungarianMatcher(nn.Module):
                 - index_j is the indices of the corresponding selected targets (in order)
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
+                
+        Notes:
+            - raw angle of outputs is (0, 1) scope, so we need proper pre-process.
         """
+        # pre-process for outputs["angle"]
+        if self.angle_minmax is not None:
+            outputs["angle"] = (
+                    self.angle_minmax[0] +
+                    outputs["angle"] * (self.angle_minmax[1] - self.angle_minmax[0])
+            )
         bs, num_queries = outputs["boxes"].shape[:2]
         
         # step 1. obtain out_{boxes, angle, logits}

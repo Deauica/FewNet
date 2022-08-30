@@ -1,6 +1,6 @@
 """ buffer.py """
 
-stage = 22  # 7
+stage = 26  # 7
 
 if stage == 1:
     """
@@ -514,4 +514,135 @@ elif stage == 25:
     pass
 
 elif stage == 26:
-    pass
+    """
+    test the angle version for decoders.gwd_loss.xy_wh_r_2_xy_sigma.
+    
+    当前的临时结果是,xy_wh_r_2_xy_sigma 和 angle version 没有关系.
+    """
+    import sys
+    sys.path.append(r"E:\Idea\ConvTransformer\code\conv_trans")
+    
+    from decoders.gwd_loss import xy_wh_r_2_xy_sigma
+    from data.utils import poly2obb_np
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from scipy.stats import multivariate_normal
+    import torch
+    import cv2
+    
+    def gen_gaussian_distribution(mu, cov, M):
+        data = np.random.multivariate_normal(mu, cov, M)
+        gaussian = multivariate_normal(mean=mu, cov=cov)
+        
+        return data, gaussian
+    
+    angle_version = "le90"
+    canvas_H, canvas_W = 800, 800
+    polygon = [
+        588, 829, 1545, 32, 1600, 98, 643, 895
+    ]
+    rbox = torch.tensor(
+        poly2obb_np(polygon, angle_version)  # [cx, cy, w, h, angle]
+    ).reshape([-1, 5])
+    # rbox[:, 0:-1:2] = rbox[:, 0:-1:2] / canvas_W  # increase robustness of indexing
+    # rbox[:, 1::2] = rbox[:, 1::2] / canvas_H
+    
+    xy, sigma = xy_wh_r_2_xy_sigma(rbox)  # xy is mu and sigma is cov
+    if sigma.shape[0] == 1:
+        sigma = sigma.reshape([2, 2])
+        xy = xy.int().reshape([2])
+    
+    # plot
+    canvas = np.zeros([canvas_H, canvas_W], dtype=np.float64)
+    
+    poly_np = np.array(polygon).reshape([-1, 2])  # 4, 2
+    poly_width = poly_np[:, 0].max() - poly_np[:, 0].min()
+    poly_height = poly_np[:, 1].max() - poly_np[:, 1].min()
+    M = max(poly_width, poly_height) * 10
+    
+    _, gau_distribution = gen_gaussian_distribution(
+        xy, sigma, M
+    )
+    X, Y = np.meshgrid(
+        np.linspace(xy[0]-M//2, xy[0]+M//2, M), np.linspace(xy[1]-M//2, xy[1]+M//2, M)
+    )
+    d = np.dstack([X, Y])
+    Z = gau_distribution.pdf(d).reshape([M, M])
+    plt.imshow(Z)
+    plt.title("{}: {}".format(angle_version, rbox.flatten()[-1]))
+    plt.show()
+    
+    cv2.polylines(
+        canvas, [np.array(polygon).reshape(-1, 2).astype(np.int32)],
+        True, 1, 2
+    )
+    cv2.imwrite(
+        "debug/a_test_angle_version.jpg",
+        cv2.applyColorMap((canvas * 255).astype(np.uint8), cv2.COLORMAP_JET)
+    )
+
+elif stage == 27:
+    """ test for the scipy.stats.multivariate """
+    from scipy.stats import multivariate_normal
+    import torch
+    import cv2
+    import numpy as np
+    import matplotlib.pyplot as plt
+    
+    mu = (0, 0)
+    cov = np.eye(2)
+    gaussian = multivariate_normal(mean=mu, cov=cov)
+    
+    M = 200
+    xs, ys = np.meshgrid(
+        np.linspace(-10, 10, M), np.linspace(-10, 10, M)
+    )
+    d = np.dstack([xs, ys])  # [M, M, 2]
+    canvas = gaussian.pdf(d).reshape([M, M])
+    plt.imshow(canvas)
+    plt.show()
+    
+    cv2.imwrite(
+        "debug/a_test_gaussian.jpg",
+        cv2.applyColorMap((canvas * 255).astype(np.uint8), cv2.COLORMAP_JET)
+    )
+
+elif stage == 28:
+    """ another version of gaussian heatmap """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from scipy.stats import multivariate_normal
+    import cv2
+    
+    # create 2 kernels
+    m1 = (-1, -1)
+    s1 = np.eye(2)
+    k1 = multivariate_normal(mean=m1, cov=s1)
+
+    m2 = (1, 1)
+    s2 = np.eye(2)
+    k2 = multivariate_normal(mean=m2, cov=s2)
+
+    # create a grid of (x,y) coordinates at which to evaluate the kernels
+    xlim = (-3, 3)
+    ylim = (-3, 3)
+    xres = 100
+    yres = 100
+
+    x = np.linspace(xlim[0], xlim[1], xres)
+    y = np.linspace(ylim[0], ylim[1], yres)
+    xx, yy = np.meshgrid(x, y)
+
+    # evaluate kernels at grid points
+    xxyy = np.c_[xx.ravel(), yy.ravel()]
+    zz = k1.pdf(xxyy) + k2.pdf(xxyy)
+
+    # reshape and plot image
+    img = zz.reshape((xres, yres))
+    plt.imshow(img)
+    plt.show()
+    
+    cv2.imwrite(
+        "debug/a_test_gaussian_another.jpg",
+        cv2.applyColorMap((img * 255).astype(np.uint8), cv2.COLORMAP_JET)
+    )

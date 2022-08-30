@@ -8,6 +8,13 @@ Loss definition for ``Few Could be Better than All``,
    -- 分母 是 total number of selection features.
 3. detection loss, After matching, detection loss is (scaled gwd loss);
    -- 分母 是 matched boxes 的数量.
+   
+当前的 angle 方面，有一个设置 需要留意：
+1. targets 在 make_fewnet_target 中，没有做 归一化，而仅仅只是在 fewnet_loss 的计算环节，做了 逆向归一化;
+2. fewnet_loss 中 anti-norm 的具体环节在两个：
+  - self.matcher 内部，可能会做归一化，通过传入的 self.minmax 来控制;
+  - output_matched 做了归一化，这个一般是必须的，因为 需要通过 gwd_loss.
+3. 当前的验证，可以初步判断，gwd_loss 与具体的 angle version 好像没有太大的关系.
 """
 
 
@@ -16,6 +23,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from collections import OrderedDict
+import numpy as np
 
 from .matcher import *
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy
@@ -132,7 +140,7 @@ class FewNetLoss(nn.Module):
     def __init__(self,
                  weight_cost_logits=1.0, weight_cost_boxes=1.0,
                  weight_loss_score_map=1.0, weight_loss_logits=1.0, weight_loss_rbox=1.0,
-                 max_target_num=100,
+                 max_target_num=100, angle_version="le135",
                  rbox_loss_type="gwd", rbox_fun="log1p", rbox_tau=1.0):
         super(FewNetLoss, self).__init__()
         self.weight_cost_logits, self.weight_cost_boxes = (
@@ -146,12 +154,19 @@ class FewNetLoss(nn.Module):
         )
         
         self.loss_logits_func = self.loss_logits
+        
+        self.max_target_num = max_target_num
+        self.angle_version = angle_version
+        self.angle_minmax = torch.as_tensor(dict(
+            oc=(0, np.pi / 2), le135=(-np.pi / 4, np.pi * 3 / 4),
+            le90=(-np.pi / 2, np.pi / 2)
+        )[self.angle_version])
         self.matcher = HungarianMatcher(
             self.weight_cost_boxes, self.cost_boxes_func,
             self.weight_cost_logits, self.cost_logits_func,
+            angle_minmax=self.angle_minmax
         )
-        
-        self.max_target_num = max_target_num
+
         self.rbox_fun, self.rbox_loss_type, self.rbox_tau, self.rbox_reduction = (
             rbox_fun, rbox_loss_type, rbox_tau, "sum"
         )
@@ -222,7 +237,10 @@ class FewNetLoss(nn.Module):
         # step 4. loss for rotated boxes -- 注意 gwd_loss 的计算中，是否可以针对 normalized coords.
         N_r = outputs_matched["boxes"].shape[0]
         outputs_rbox = torch.cat(  # [num_tgt_boxes, 5]
-            [outputs_matched["boxes"], outputs_matched["angle"]], dim=-1
+            [outputs_matched["boxes"],
+             self.angle_minmax[0] + outputs_matched["angle"] * (
+                     self.angle_minmax[1] - self.angle_minmax[0]
+             )], dim=-1
         )
         tgt_rbox = torch.cat(  # [num_tgt_boxes, 5]
             [targets_matched["boxes"], targets_matched["angle"]], dim=-1
@@ -280,7 +298,7 @@ class FewNetLoss(nn.Module):
             ])
             
         # Following code is similar to `self.gen_output_matched`
-        sizes = [len(elem[0]) for elem in indices]
+        sizes = [len(elem[1]) for elem in indices]
         batch_idx = torch.cat([torch.full((s,), i) for i, s in enumerate(sizes)])
         tgt_idx = torch.cat([tgt_indice for (_, tgt_indice) in indices])
 
@@ -307,7 +325,7 @@ class FewNetLoss(nn.Module):
             outputs_logits (Tensor): tensor of dim [num_tgt_boxes, 1]
         """
         targets_logits = torch.full_like(outputs_logits, 1)
-        return F.binary_cross_entropy_with_logits(  # sigmoid is perform automatically
+        return F.binary_cross_entropy(  # no simgoid is needed to perform
             input=outputs_logits, target=targets_logits, reduction="sum"
         )
     

@@ -100,6 +100,18 @@ class MakeFewNetTarget(Configurable):
                 len(self.resizer), len(self.strides)
             )
         )
+        
+        # for angle
+        assert self.angle_version in ["le135", "le90", "oc"], (
+            "supported angle version are: {},"
+            "However, your angle_version: {}".foramt(
+                ["le135", "le90", "oc"], self.angle_version
+            )
+        )
+        self.angle_minmax = dict(
+            oc=(0, np.pi / 2), le135=(-np.pi / 4, np.pi * 3 / 4),
+            le90=(-np.pi / 2, np.pi / 2)
+        )[self.angle_version]
     
     def __call__(self, data, *args, **kwargs):
         """ Generate targets for Few Could be Better than All.

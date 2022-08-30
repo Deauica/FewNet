@@ -16,7 +16,7 @@ class FewNetPostProcess(Configurable):
     """
     logits_threshold = State(default=0.5)  # 0.45 for IC15 and 0.5 for others
     angle_version = State(default="le135")
-    angle_maxmin = dict(
+    angle_minmax = dict(
         oc=(0, np.pi / 2), le135=(-np.pi / 4, np.pi * 3 / 4),
         le90=(-np.pi / 2, np.pi / 2)
     )
@@ -58,7 +58,7 @@ class FewNetPostProcess(Configurable):
         # re-format outputs["logits"] and outputs["angle]
         if len(outputs["logits"].shape) > 2:
             outputs["logits"] = outputs["logits"].squeeze(dim=-1)  # [bs, num_selected_features]
-        outputs["logits"] = outputs["logits"].sigmoid()  # perform sigmoid
+        outputs["logits"] = outputs["logits"]  # no sigmoid is needed
             
         #
         boxes_batch, scores_batch = [], []
@@ -67,13 +67,11 @@ class FewNetPostProcess(Configurable):
             logits_mask = out_logits > self.logits_threshold
             score = out_logits[logits_mask]  # [num_boxes, 1]
             
-            # boxes related
-            # currently, angles is clamped directly.
+            # boxes related, angle is scaled to angle_minmax
             img_H, img_W = data["shape"][i]
             angles = outputs["angle"][logits_mask]  # 2-dim vector, [num_boxes, 1]
-            angles = torch.clamp(
-                angles, min=self.angle_maxmin[self.angle_version],
-                max=self.angle_maxmin[self.angle_version])
+            angles = self.angle_minmax[0] + angles * (self.angle_minmax[1] - self.angle_minmax[0])
+            
             boxes = outputs["boxes"][logits_mask]  # 2-dim vector, [num_boxes, 4]
             boxes[:, [0, 2]] = boxes[:, [0, 2]] * img_W
             boxes[:, [1, 3]] = boxes[:, [1, 3]] * img_H
