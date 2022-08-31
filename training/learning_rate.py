@@ -101,9 +101,18 @@ class DecayLearningRate(Configurable):
     
 
 class FewNetLearningRate(Configurable):
-    """ Learning Rate for Few Could be Better than All """
-    pass
-
+    """
+    Learning Rate for Few Could be Better than All,
+    0.001 of initial lr in pre-training and 0.0005 in fine-tuning
+    """
+    lr = State(default=0.001)
+    
+    def __init__(self, **kwargs):
+        super(FewNetLearningRate, self).__init__(**kwargs)
+        
+    def get_learning_rate(self, epoch, step=None):
+        rate = self.lr if epoch <= 40 else 0.0001
+        return rate
 
 class BuitlinLearningRate(Configurable):
     lr = State(default=0.001)
