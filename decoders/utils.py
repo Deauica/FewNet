@@ -8,6 +8,7 @@ from torchvision.ops.boxes import box_area
 import torch
 import numpy as np
 import math
+from shapely.geometry import Polygon as plg
 
 
 # modified from torchvision to also return the union
@@ -222,3 +223,193 @@ def get_best_begin_point(coordinates):
     coordinates = list(map(get_best_begin_point_single, coordinates.tolist()))
     coordinates = np.array(coordinates)
     return coordinates
+
+
+def obb2poly(rbboxes, version='oc'):
+    """Convert oriented bounding boxes to polygons.
+    Args:
+        obbs (torch.Tensor): [x_ctr,y_ctr,w,h,angle]
+        version (Str): angle representations.
+    Returns:
+        polys (torch.Tensor): [x0,y0,x1,y1,x2,y2,x3,y3]
+    """
+    if version == 'oc':
+        results = obb2poly_oc(rbboxes)
+    elif version == 'le135':
+        results = obb2poly_le135(rbboxes)
+    elif version == 'le90':
+        results = obb2poly_le90(rbboxes)
+    else:
+        raise NotImplementedError
+    return results
+
+def obb2poly_oc(rboxes):
+    """Convert oriented bounding boxes to polygons.
+    Args:
+        obbs (torch.Tensor): [x_ctr,y_ctr,w,h,angle]
+    Returns:
+        polys (torch.Tensor): [x0,y0,x1,y1,x2,y2,x3,y3]
+    """
+    x = rboxes[:, 0]
+    y = rboxes[:, 1]
+    w = rboxes[:, 2]
+    h = rboxes[:, 3]
+    a = rboxes[:, 4]
+    cosa = torch.cos(a)
+    sina = torch.sin(a)
+    wx, wy = w / 2 * cosa, w / 2 * sina
+    hx, hy = -h / 2 * sina, h / 2 * cosa
+    p1x, p1y = x - wx - hx, y - wy - hy
+    p2x, p2y = x + wx - hx, y + wy - hy
+    p3x, p3y = x + wx + hx, y + wy + hy
+    p4x, p4y = x - wx + hx, y - wy + hy
+    return torch.stack([p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y], dim=-1)
+
+
+def obb2poly_le135(rboxes):
+    """Convert oriented bounding boxes to polygons.
+    Args:
+        obbs (torch.Tensor): [x_ctr,y_ctr,w,h,angle]
+    Returns:
+        polys (torch.Tensor): [x0,y0,x1,y1,x2,y2,x3,y3]
+    """
+    N = rboxes.shape[0]
+    if N == 0:
+        return rboxes.new_zeros((rboxes.size(0), 8))
+    x_ctr, y_ctr, width, height, angle = rboxes.select(1, 0), rboxes.select(
+        1, 1), rboxes.select(1, 2), rboxes.select(1, 3), rboxes.select(1, 4)
+    tl_x, tl_y, br_x, br_y = \
+        -width * 0.5, -height * 0.5, \
+        width * 0.5, height * 0.5
+    rects = torch.stack([tl_x, br_x, br_x, tl_x, tl_y, tl_y, br_y, br_y],
+                        dim=0).reshape(2, 4, N).permute(2, 0, 1)
+    sin, cos = torch.sin(angle), torch.cos(angle)
+    M = torch.stack([cos, -sin, sin, cos], dim=0).reshape(2, 2,
+                                                          N).permute(2, 0, 1)
+    polys = M.matmul(rects).permute(2, 1, 0).reshape(-1, N).transpose(1, 0)
+    polys[:, ::2] += x_ctr.unsqueeze(1)
+    polys[:, 1::2] += y_ctr.unsqueeze(1)
+    return polys.contiguous()
+
+
+def obb2poly_le90(rboxes):
+    """Convert oriented bounding boxes to polygons with Tensor.
+    Args:
+        obbs (torch.Tensor): [x_ctr,y_ctr,w,h,angle]
+    Returns:
+        polys (torch.Tensor): [x0,y0,x1,y1,x2,y2,x3,y3]
+    """
+    N = rboxes.shape[0]
+    if N == 0:
+        return rboxes.new_zeros((rboxes.size(0), 8))
+    x_ctr, y_ctr, width, height, angle = rboxes.select(1, 0), rboxes.select(
+        1, 1), rboxes.select(1, 2), rboxes.select(1, 3), rboxes.select(1, 4)
+    tl_x, tl_y, br_x, br_y = \
+        -width * 0.5, -height * 0.5, \
+        width * 0.5, height * 0.5
+    rects = torch.stack([tl_x, br_x, br_x, tl_x, tl_y, tl_y, br_y, br_y],
+                        dim=0).reshape(2, 4, N).permute(2, 0, 1)
+    sin, cos = torch.sin(angle), torch.cos(angle)
+    M = torch.stack([cos, -sin, sin, cos], dim=0).reshape(2, 2,
+                                                          N).permute(2, 0, 1)
+    polys = M.matmul(rects).permute(2, 1, 0).reshape(-1, N).transpose(1, 0)
+    polys[:, ::2] += x_ctr.unsqueeze(1)
+    polys[:, 1::2] += y_ctr.unsqueeze(1)
+    return polys.contiguous()
+
+
+def poly_make_valid(poly):
+    """Convert a potentially invalid polygon to a valid one by eliminating
+    self-crossing or self-touching parts.
+    Args:
+        poly (Polygon): A polygon needed to be converted.
+    Returns:
+        A valid polygon.
+    """
+    return poly if poly.is_valid else poly.buffer(0)
+
+
+def poly_intersection(poly_det, poly_gt, invalid_ret=None, return_poly=False):
+    """Calculate the intersection area between two polygon.
+    Args:
+        poly_det (Polygon): A polygon predicted by detector.
+        poly_gt (Polygon): A gt polygon.
+        invalid_ret (None|float|int): The return value when the invalid polygon
+            exists. If it is not specified, the function allows the computation
+            to proceed with invalid polygons by cleaning the their
+            self-touching or self-crossing parts.
+        return_poly (bool): Whether to return the polygon of the intersection
+            area.
+    Returns:
+        intersection_area (float): The intersection area between two polygons.
+        poly_obj (Polygon, optional): The Polygon object of the intersection
+            area. Set as `None` if the input is invalid.
+    """
+    assert isinstance(poly_det, plg)
+    assert isinstance(poly_gt, plg)
+    assert invalid_ret is None or isinstance(invalid_ret, float) or \
+        isinstance(invalid_ret, int)
+
+    if invalid_ret is None:
+        poly_det = poly_make_valid(poly_det)
+        poly_gt = poly_make_valid(poly_gt)
+
+    poly_obj = None
+    area = invalid_ret
+    if poly_det.is_valid and poly_gt.is_valid:
+        poly_obj = poly_det.intersection(poly_gt)
+        area = poly_obj.area
+    return (area, poly_obj) if return_poly else area
+
+
+def poly_union(poly_det, poly_gt, invalid_ret=None, return_poly=False):
+    """Calculate the union area between two polygon.
+    Args:
+        poly_det (Polygon): A polygon predicted by detector.
+        poly_gt (Polygon): A gt polygon.
+        invalid_ret (None|float|int): The return value when the invalid polygon
+            exists. If it is not specified, the function allows the computation
+            to proceed with invalid polygons by cleaning the their
+            self-touching or self-crossing parts.
+        return_poly (bool): Whether to return the polygon of the intersection
+            area.
+    Returns:
+        union_area (float): The union area between two polygons.
+        poly_obj (Polygon|MultiPolygon, optional): The Polygon or MultiPolygon
+            object of the union of the inputs. The type of object depends on
+            whether they intersect or not. Set as `None` if the input is
+            invalid.
+    """
+    assert isinstance(poly_det, plg)
+    assert isinstance(poly_gt, plg)
+    assert invalid_ret is None or isinstance(invalid_ret, float) or \
+        isinstance(invalid_ret, int)
+
+    if invalid_ret is None:
+        poly_det = poly_make_valid(poly_det)
+        poly_gt = poly_make_valid(poly_gt)
+
+    poly_obj = None
+    area = invalid_ret
+    if poly_det.is_valid and poly_gt.is_valid:
+        poly_obj = poly_det.union(poly_gt)
+        area = poly_obj.area
+    return (area, poly_obj) if return_poly else area
+
+
+def poly_iou(poly_det, poly_gt, zero_division=0):
+    """Calculate the IOU between two polygons.
+    Args:
+        poly_det (Polygon): A polygon predicted by detector.
+        poly_gt (Polygon): A gt polygon.
+        zero_division (int|float): The return value when invalid
+                                    polygon exists.
+    Returns:
+        iou (float): The IOU between two polygons.
+    """
+    assert isinstance(poly_det, plg)
+    assert isinstance(poly_gt, plg)
+    
+    area_inters = poly_intersection(poly_det, poly_gt)
+    area_union = poly_union(poly_det, poly_gt)
+    return area_inters / area_union if area_union != 0 else zero_division

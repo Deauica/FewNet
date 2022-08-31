@@ -23,7 +23,7 @@ class FewNetPostProcess(Configurable):
     strides = State(default=(8, 16, 32))
     vis_score_map = State(default=False)
     
-    def __init__(self, logits_threshold=0, angle_version="le135", **kwargs):
+    def __init__(self, logits_threshold=0.4, angle_version="le135", **kwargs):
         super(FewNetPostProcess, self).__init__(**kwargs)
         
         arg_values = inspect.getfullargspec(self.__init__)

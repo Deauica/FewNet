@@ -195,4 +195,9 @@ if __name__ == '__main__':
         print("CUDA_VISIBLE_DEVICES in python: {}".format(
             os.environ["CUDA_VISIBLE_DEVICES"]
         ))
+        
+    if os.path.exists("results"):
+        import shutil
+        shutil.rmtree("results/")
+    
     main()

@@ -26,9 +26,10 @@ from collections import OrderedDict
 import numpy as np
 
 from .matcher import *
-from .utils import generalized_box_iou, box_cxcywh_to_xyxy
+from .utils import generalized_box_iou, box_cxcywh_to_xyxy, obb2poly, poly_iou
 from typing import Union
 from .gwd_loss import GDLoss
+from shapely.geometry import Polygon as plg
 
 
 def cost_bboxes_func(out_boxes: Tensor, tgt_boxes: Tensor):
@@ -152,7 +153,7 @@ class FewNetLoss(nn.Module):
             cost_logits_func, cost_rbox_func  # cost_rbox_func
         )
         
-        self.loss_logits_func = self.loss_logits
+        self.loss_logits_func = self._loss_logits
         
         self.max_target_num = max_target_num
         self.angle_version = angle_version
@@ -229,17 +230,8 @@ class FewNetLoss(nn.Module):
         
         outputs_matched = self.gen_output_matched(outputs, indices)  # [str, [num_tgt_boxes, ...]]
         targets_matched = self.gen_target_matched(targets, indices)
-        
-        # step 3. loss for logits
-        # the loss_logits should contain all the matched and unmatched samples
-        loss_logits = self.loss_logits_func(
-            outputs_matched["logits"], outputs["logits"].flatten(0, 1)
-        )
-        N = outputs["logits"].shape[0] * outputs["logits"].shape[1]  # B * num_selected_features
-        loss_dict.update(
-            loss_logits=self.weight_loss_logits * loss_logits/N)
-        
-        # step 4. loss for rotated boxes -- 注意 gwd_loss 的计算中，是否可以针对 normalized coords.
+
+        # step 3. loss for rotated boxes -- 注意 gwd_loss 的计算中，是否可以针对 normalized coords.
         N_r = outputs_matched["boxes"].shape[0]
         outputs_rbox = torch.cat(  # [num_tgt_boxes, 5]
             [outputs_matched["boxes"],
@@ -255,10 +247,19 @@ class FewNetLoss(nn.Module):
         loss_dict.update(
             loss_rbox=self.weight_loss_rbox * loss_rbox / N_r)
         
+        # step 4. loss for logits
+        # the loss_logits should contain all the matched and unmatched samples
+        loss_logits = self.loss_logits_func(
+            outputs_matched["logits"], outputs_rbox, tgt_rbox
+        )
+        N = outputs["logits"].shape[0] * outputs["logits"].shape[1]  # B * num_selected_features
+        loss_dict.update(
+            loss_logits=self.weight_loss_logits * loss_logits/N)
+        
+        
         for _ in loss_dict.values():
             loss += _
         return loss, loss_dict
-    
     
     def gen_output_matched(self, outputs, indices):
         """
@@ -323,18 +324,6 @@ class FewNetLoss(nn.Module):
             )  # shape of out_score_map should be same as tgt_score_map
         return loss_sum / N_f
     
-    def _loss_logits(self, outputs_logits, target_label=1):
-        """Calculate bce loss for logits in outputs.
-        
-        Args:
-            outputs_logits (Tensor): tensor of dim [num_boxes, 1]
-            target_label (int): 0 for negative and 1 for positive.
-        """
-        targets_logits = torch.full_like(outputs_logits, target_label)
-        return F.binary_cross_entropy(  # no simgoid is needed to perform
-            input=outputs_logits, target=targets_logits, reduction="sum"
-        )
-    
     def loss_logits(self, out_matched_logits, out_logits):
         """Calculate bce loss for logits in output. Currently,
         we think the matched boxes should be positive and the others are negative.
@@ -347,17 +336,56 @@ class FewNetLoss(nn.Module):
         Returns:
             l: sum of bce logits.
         """
-        num_matched_logits = len(out_matched_logits)
-        num_logits = len(out_logits)
+        pass
+    
+    def _loss_logits(self, out_matched_logits, out_matched_boxes, tgt_matched_boxes,
+                     poly_iou_threshold=0.5):
+        """ First version for loss_logits
         
-        l_matched_neg = self._loss_logits(out_matched_logits, 0)
-        l_neg = self._loss_logits(out_logits, 0)
-        l_unmatched_neg = (
-                (l_neg - l_matched_neg) * num_matched_logits /
-                (num_logits - num_matched_logits)
+        Args:
+            out_matched_logits (Tensor): tensor with dim [bs * num_queries, 1]
+            out_matched_boxes (Tensor): tensor with dim [bs * num_queries, 5]
+            tgt_matched_boxes (Tenesor): tensor with dim [bs * num_queries, 5]
+            poly_iou_threshold (float): threshold used to check whether current box should be positive.
+        """
+        assert len(out_matched_logits) == len(out_matched_boxes) == len(tgt_matched_boxes), (
+            "len of out_matched_logits, out_matched_boxes, out_matched_boxes should be the same",
+            "However, your results: {}".format(
+                [len(out_matched_logits), len(out_matched_boxes), len(tgt_matched_boxes)]
+            )
         )
-        l_matched_pos = self._loss_logits(out_matched_logits, 1)
-        return l_matched_pos + l_unmatched_neg
+        if out_matched_boxes.shape[-1] == tgt_matched_boxes.shape[-1] == 5:
+            """
+            transform (cx, cy, w, h, theta) to quad version,
+            1280 should be replaced by the proper imgH and imgW
+            """
+            out_matched_boxes = obb2poly(out_matched_boxes * 1280, self.angle_version)
+            tgt_matched_boxes = obb2poly(tgt_matched_boxes * 1280, self.angle_version)
+            
+        assert out_matched_boxes.shape[-1] >= 8 and tgt_matched_boxes.shape[-1] >= 8, (
+            "your out_matched_boxes.shape and tgt_matched_boxes.shape are: {}, {}".format(
+                out_matched_boxes.shape, tgt_matched_boxes.shape
+            )
+        )
+        
+        with torch.no_grad():
+            """
+            generate target labels for out_matched_logits based on the poly_iou.
+            In future, this part should be implemented in self.matcher
+            """
+            target_labels = []
+            for out_matched_box, tgt_matched_box in zip(out_matched_boxes, tgt_matched_boxes):
+                out_matched_box = plg(out_matched_box.reshape(-1, 2).cpu().numpy())
+                tgt_matched_box = plg(tgt_matched_box.reshape(-1, 2).cpu().numpy())
+                if poly_iou(out_matched_box, tgt_matched_box) > poly_iou_threshold:
+                    target_labels.append(1)
+                else:
+                    target_labels.append(0)
+        target_labels = torch.as_tensor(
+            target_labels, dtype=torch.float).to(out_matched_logits.device)
+        return F.binary_cross_entropy(
+            out_matched_logits.flatten(), target_labels, reduction="sum"
+        )
 
 
 if __name__ == "__main__":

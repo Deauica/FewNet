@@ -663,6 +663,9 @@ elif stage == 29:
         os.path.dirname(img_dir),
         os.path.basename(img_dir) + "_vis"
     )
+    if os.path.exists(img_res_visdir):
+        import shutil
+        shutil.rmtree(img_res_visdir)
     
     def extract_polygons(anno_path, contain_prob=True):
         scores = []
