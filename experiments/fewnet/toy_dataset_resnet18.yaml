@@ -18,6 +18,7 @@ define:
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
+            vis_score_map: True  # need visualize score_map
         measurer:
             class: QuadMeasurer
         visualizer:  
