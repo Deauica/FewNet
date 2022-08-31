@@ -132,7 +132,6 @@ class VisionFPN(nn.Module):
         if self.need_conv_fpn:
             self.fpn = _VISION_FPN(
                 in_channels_list=in_channels, out_channels=inner_channels,
-        
             )
         else:
             self.fpn = nn.ModuleDict(OrderedDict([

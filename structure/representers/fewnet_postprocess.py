@@ -1,5 +1,7 @@
 """
 Post-Processor for `Few Could be Better than All.`
+
+buffer/stage-29 offer the code snippet to simply visualize the results.
 """
 
 from concern.config import Configurable, State
@@ -7,6 +9,8 @@ import inspect
 import torch
 import numpy as np
 from decoders.utils import obb2poly_np
+import cv2
+import os
 
 
 class FewNetPostProcess(Configurable):
@@ -16,7 +20,8 @@ class FewNetPostProcess(Configurable):
     """
     logits_threshold = State(default=0.5)  # 0.45 for IC15 and 0.5 for others
     angle_version = State(default="le135")
-    
+    strides = State(default=(8, 16, 32))
+    vis_score_map = State(default=False)
     
     def __init__(self, logits_threshold=0.5, angle_version="le135", **kwargs):
         super(FewNetPostProcess, self).__init__(**kwargs)
@@ -36,7 +41,7 @@ class FewNetPostProcess(Configurable):
             le90=(-np.pi / 2, np.pi / 2)
         )[self.angle_version]
     
-    def represent(self, data, outputs, *args, **kwrags):
+    def represent(self, data, outputs, *args, **kwargs):
         r""" Generate quad version for boxes and proper scores.
         
         Args:
@@ -86,6 +91,26 @@ class FewNetPostProcess(Configurable):
             
             boxes_batch.append(t_boxes)
             scores_batch.append(t_score)
+        
+        if self.vis_score_map or kwargs.get("vis_score_map", False):
+            self.visualize_score_map(data, outputs)
+        
         return boxes_batch, scores_batch
         
     __call__ = represent  # __call__ is represent
+
+    def visualize_score_map(self, data, outputs):
+        """ Visualize the score map with pseudo color """
+        assert "score_map" in outputs, (
+            "score_map should be in data, "
+            "However, your keys for data are: {}".format(outputs.keys())
+        )
+        for i, score_maps in enumerate(outputs["score_map"]):  # [B, Hi, Wi]
+            stride = self.strides[i]
+            for score_map, imgpath in zip(score_maps, data["filename"]):
+                imgname = os.path.basename(imgpath)
+                cv2.imwrite(
+                    os.path.join("debug", f"pred_score_{stride}_{imgname}"),
+                    cv2.applyColorMap((score_map.cpu().numpy() * 255).astype(np.uint8),
+                                      cv2.COLORMAP_JET)
+                )

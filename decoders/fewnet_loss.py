@@ -161,6 +161,9 @@ class FewNetLoss(nn.Module):
             oc=(0, np.pi / 2), le135=(-np.pi / 4, np.pi * 3 / 4),
             le90=(-np.pi / 2, np.pi / 2)
         )[self.angle_version])
+        
+        # During matching, for simply consider cost_boxes while ignoring cost_logits
+        # for scene text detection.
         self.matcher = HungarianMatcher(
             self.weight_cost_boxes, self.cost_boxes_func,
             self.weight_cost_logits, self.cost_logits_func,
@@ -229,8 +232,11 @@ class FewNetLoss(nn.Module):
         targets_matched = self.gen_target_matched(targets, indices)
         
         # step 3. loss for logits
-        loss_logits = self.loss_logits_func(outputs_matched["logits"])
-        N = outputs["logits"].shape[0] * outputs["logits"].shape[1]  # B * num_features
+        # the loss_logits should contain all the matched and unmatched samples
+        loss_logits = self.loss_logits_func(
+            outputs_matched["logits"], outputs["logits"].flatten(0, 1)
+        )
+        N = outputs["logits"].shape[0] * outputs["logits"].shape[1]  # B * num_selected_features
         loss_dict.update(
             loss_logits=self.weight_loss_logits * loss_logits/N)
         
@@ -318,17 +324,35 @@ class FewNetLoss(nn.Module):
             )  # shape of out_score_map should be same as tgt_score_map
         return loss_sum / N_f
     
-    def loss_logits(self, outputs_logits):
+    def _loss_logits(self, outputs_logits, target_label=1):
         """Calculate bce loss for logits in outputs.
         
         Args:
-            outputs_logits (Tensor): tensor of dim [num_tgt_boxes, 1]
+            outputs_logits (Tensor): tensor of dim [num_boxes, 1]
+            target_label (int): 0 for negative and 1 for positive.
         """
-        targets_logits = torch.full_like(outputs_logits, 1)
+        targets_logits = torch.full_like(outputs_logits, target_label)
         return F.binary_cross_entropy(  # no simgoid is needed to perform
             input=outputs_logits, target=targets_logits, reduction="sum"
         )
     
+    def loss_logits(self, out_matched_logits, out_logits):
+        """Calculate bce loss for logits in output. Currently,
+        we think the matched boxes should be positive and the others are negative.
+        Current implementation is redundant due the the historical issue.
+        
+        Args:
+            out_matched_logits (Tensor): tensor of dim [num_tgt_boxes_batch, 1]
+            out_logits (Tensor): tensor of dim [bs * num_selected_features, 1]
+            
+        Returns:
+            l: sum of bce logits.
+        """
+        l_matched_pos = self._loss_logits(out_matched_logits, 1)
+        l_matched_neg = self._loss_logits(out_matched_logits, 0)
+        l_neg = self._loss_logits(out_logits, 0)
+        return l_neg - l_matched_neg + l_matched_pos
+
 
 if __name__ == "__main__":
     pass

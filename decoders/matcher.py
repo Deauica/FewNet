@@ -26,11 +26,6 @@ class HungarianMatcher(nn.Module):
         self.weight_boxes, self.cost_boxes_func = weight_boxes, cost_boxes_func
         self.weight_logits, self.cost_logits_func = weight_logits, cost_logits_func
         
-        assert (self.weight_boxes != 0 and self.weight_logits != 0), (
-            "weight_(boxes, logits) can not be 0, but your weight: {}, {}".format(
-                self.weight_boxes, self.weight_logits
-            )
-        )
         self.angle_minmax = angle_minmax
 
     @torch.no_grad()

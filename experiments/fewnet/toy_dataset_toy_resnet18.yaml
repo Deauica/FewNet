@@ -19,9 +19,12 @@ define:
                     model_dim: 32
                     nhead: 4
                 loss_class: FewNetLoss
+                loss_kwargs:
+                    weight_cost_logits: 1  # cost_logits should be removed
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
+            vis_score_map: True  # need visualize score_map
         measurer:
             class: QuadMeasurer
         visualizer:  

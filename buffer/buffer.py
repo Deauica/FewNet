@@ -1,6 +1,6 @@
 """ buffer.py """
 
-stage = 26  # 7
+stage = 29  # 7
 
 if stage == 1:
     """
@@ -646,3 +646,112 @@ elif stage == 28:
         "debug/a_test_gaussian_another.jpg",
         cv2.applyColorMap((img * 255).astype(np.uint8), cv2.COLORMAP_JET)
     )
+
+elif stage == 29:
+    """
+    visualize the results, Green is gt while Red is prediction.
+    """
+    import os
+    import cv2
+    import numpy as np
+    
+    result_dir = "results/"
+    img_dir = "datasets/toy_dataset/test_images"
+    gt_dir = "datasets/toy_dataset/test_gts"
+    
+    img_res_visdir = os.path.join(
+        os.path.dirname(img_dir),
+        os.path.basename(img_dir) + "_vis"
+    )
+    
+    def extract_polygons(anno_path, contain_prob=True):
+        scores = []
+        polygons = []
+        
+        with open(anno_path, "r") as f:
+            lines = f.readlines()
+            lines = [i.strip('\ufeff').strip('\xef\xbb\xbf') for i in lines]
+            for line in lines:
+                line = [
+                    float(item) for item in line.split(",")[:-1]
+                ]
+                polygons.append(
+                    np.array(line[:None]).reshape([-1, 2])
+                        .astype(np.int32)
+                )
+                scores.append(
+                    float(line[-1]) if contain_prob else 1
+                )
+        return polygons, scores
+    
+    for anno_file in os.listdir(result_dir):
+        anno_path = os.path.join(result_dir, anno_file)
+        
+        polygons, scores = extract_polygons(anno_path)
+        
+        img_file = anno_file.split(".")[0][4:] + ".jpg"
+        img_path = os.path.join(img_dir, img_file)
+        gt_path = os.path.join(gt_dir, img_file + ".txt")
+        
+        assert os.path.exists(img_path) and os.path.exists(gt_path), (
+            "img_path  or gt_path do not exist: {}, {}".format(img_path, gt_path)
+        )
+        
+        img = cv2.imread(img_path)
+        gt_polygons, _ = extract_polygons(gt_path)
+        
+        cv2.polylines(img, polygons, True, (0, 0, 255), 2)
+        cv2.polylines(img, gt_polygons, True, (0, 255, 0), 4)
+        if not os.path.exists(img_res_visdir):
+            os.mkdir(img_res_visdir)
+            
+        cv2.imwrite(
+            os.path.join(img_res_visdir, img_file),
+            img
+        )
+
+elif stage == 30:
+    targets = None
+
+    import numpy as np
+    import torch
+    from typing import List
+    import cv2
+    
+    RGB_MEAN = np.array([122.67891434, 116.66876762, 104.00698793])
+    
+    def norm_tensor_2_ndarray(t) -> List[np.ndarray]:
+        t = t * 255
+        
+        results = []
+        for img in torch.unbind(t, dim=0):
+            img = img.cpu().numpy()
+            img = np.transpose(img, (1, 2, 0))  # [H, W, C]
+            img += RGB_MEAN.reshape([1, 1, -1])
+            results.append(img.astype(np.int32))
+        return results
+    
+    
+    if targets is not None:
+        # step 1: check for image
+        results = norm_tensor_2_ndarray(targets["image"])
+        for i, img in enumerate(results):
+            cv2.imwrite(
+                "debug/results_{}.jpg".format(i),
+                img
+            )
+
+        # step 2: check for score_amp
+        strides = (8, 16, 32)
+        for i, score_maps in enumerate(targets["score_map"]):
+            stride = strides[i]
+            score_maps = score_maps.cpu().numpy()
+            for imgnum, score_map in enumerate(score_maps):
+                cv2.imwrite(
+                    "debug/t_sm_{}_{}.jpg".format(stride, imgnum),
+                    cv2.applyColorMap(
+                        (score_map * 255).astype(np.uint8), cv2.COLORMAP_JET
+                    )
+                )
+                
+        # step 3: check for rbox

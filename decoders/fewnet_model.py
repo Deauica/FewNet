@@ -54,7 +54,10 @@ class FeatureSampling(nn.Module):
         self.C = c
         self.coord_conv_module = (
             coord_conv_module if coord_conv_module else
-            nn.Conv2d(self.C, self.C, kernel_size=3, stride=1, padding=1)
+            nn.Sequential(
+                nn.Conv2d(self.C, self.C, kernel_size=3, stride=1, padding=1),
+                nn.Conv2d(self.C, self.C, kernel_size=3, stride=1, padding=1)
+            )
         )  # self.C to self.C
         if constrained_deform_pool_module:
             self.constrained_deform_pool_module = constrained_deform_pool_module

@@ -88,8 +88,10 @@ if __name__ == '__main__':
                  if jpg_file.endswith(".jpg") or jpg_file.endswith(".JPG")]
     for jpg_path in jpg_paths:
         os.remove(jpg_path)
-        
-    print("CUDA_VISIBLE_DEVICES in python: {}".format(os.environ["CUDA_VISIBLE_DEVICES"]))
+    
+    if "CUDA_VISIBLE_DEVICES" in os.environ:
+        print("CUDA_VISIBLE_DEVICES in python: {}".format(
+            os.environ["CUDA_VISIBLE_DEVICES"]))
 
     # set manual seed to guarantee the reproducibility of training
     setup_seed(20)

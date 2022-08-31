@@ -13,6 +13,8 @@ define:
                 backbone: deformable_resnet18
                 decoder: build_fewnet
                 loss_class: FewNetLoss
+                loss_kwargs:
+                    weight_cost_logits: 0  # cost_logits should be removed
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
