@@ -1,6 +1,6 @@
 """ buffer.py """
 
-stage = 29  # 7
+stage = 31  # 7
 
 if stage == 1:
     """
@@ -763,3 +763,19 @@ elif stage == 30:
                 
         # step 3: check for rbox
         pass
+
+elif stage == 31:
+    import sys
+    sys.path.append(r"E:\Idea\ConvTransformer\code\conv_trans")
+    
+    from decoders.utils import obb2poly
+    from data.utils import poly2obb_np
+    from shapely.geometry import Polygon
+    import numpy as np
+    
+    angle_version = "le135"
+    box_quad = [712, -24, 712, -24, 697, 24, 697, 24, 0]
+    box_rotated = poly2obb_np(
+        np.array(box_quad), angle_version
+    )
+    print(box_rotated)

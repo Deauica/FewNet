@@ -167,7 +167,7 @@ class FewNetLoss(nn.Module):
         self.matcher = HungarianMatcher(
             self.weight_cost_boxes, self.cost_boxes_func,
             self.weight_cost_logits, self.cost_logits_func,
-            angle_minmax=self.angle_minmax
+            angle_minmax=None   # need no scale in matcher
         )
 
         self.rbox_fun, self.rbox_loss_type, self.rbox_tau, self.rbox_reduction = (
@@ -177,6 +177,9 @@ class FewNetLoss(nn.Module):
             loss_type=self.rbox_loss_type, fun=self.rbox_fun, tau=self.rbox_tau,
             reduction="sum"  # 这里仍然采用 reduction
         )
+    
+    def scale(self, src, amin, amax):
+        return amin + src * (amax - amin)
     
     def forward(self,
                 outputs: Dict[str, Union[Tensor, List[Tensor]]],
@@ -211,12 +214,31 @@ class FewNetLoss(nn.Module):
         """
         loss, loss_dict = 0, {}
         
-        # step 0. pre-process for targets["boxes"] and targets["angle"] for historical issue
+        # step 0. pre-process
+        # 1. targets["boxes"] and targets["angle"] should be transformed to List
+        # 2. targets["boxes"] and targets["angle"] should not be in normalized form.
+        # 3. outputs["boxes"] and outputs["angle"] should not be in normalized form.
+        imgH, imgW = targets["image"].shape[-2:]
         l_boxes, l_angles = [], []
         for i, num_tgt_box in enumerate(targets["num_tgt_boxes"]):
-            l_boxes.append(targets["boxes"][i, :num_tgt_box])
-            l_angles.append(targets["angle"][i, :num_tgt_box])
+            l_box = targets["boxes"][i, :num_tgt_box]
+            l_box[:, 0:-1:2] = l_box[:, 0:-1:2] * imgW
+            l_box[:, 1::2] = l_box[:, 1::2] * imgH
+            
+            l_boxes.append(l_box)
+            l_angles.append(
+                self.scale(targets["angle"][i, :num_tgt_box], self.angle_minmax[0],
+                           self.angle_minmax[1])
+            )
         targets["boxes"], targets["angle"] = l_boxes, l_angles  # List of [num_tgt_box, _]
+        
+        # prepare for _outputs during calculate rbox loss
+        _coef = torch.ones_like(outputs["boxes"])
+        _coef[:, :, 0:-1:2] = _coef[:, :, 0:-1:2] * imgW
+        _coef[:, :, 1::2] = _coef[:, :, 1::2] * imgH
+        _out_boxes = outputs["boxes"] * _coef
+        _out_angle = self.scale(outputs["angle"], self.angle_minmax[0], self.angle_minmax[1])
+        _outputs = OrderedDict(boxes=_out_boxes, angle=_out_angle, logits=outputs["logits"])
         
         # step 1. loss for score_maps
         out_score_maps, tgt_score_maps = outputs.pop("score_map"), targets.pop("score_map")
@@ -226,18 +248,15 @@ class FewNetLoss(nn.Module):
         
         # step 2. matching between outputs and targets
         # Now, outputs and targets contain no score_map
-        indices = self.matcher(outputs, targets)
+        indices = self.matcher(_outputs, targets)
         
-        outputs_matched = self.gen_output_matched(outputs, indices)  # [str, [num_tgt_boxes, ...]]
+        outputs_matched = self.gen_output_matched(_outputs, indices)  # [str, [num_tgt_boxes, ...]]
         targets_matched = self.gen_target_matched(targets, indices)
 
         # step 3. loss for rotated boxes -- 注意 gwd_loss 的计算中，是否可以针对 normalized coords.
         N_r = outputs_matched["boxes"].shape[0]
         outputs_rbox = torch.cat(  # [num_tgt_boxes, 5]
-            [outputs_matched["boxes"],
-             self.angle_minmax[0] + outputs_matched["angle"] * (
-                     self.angle_minmax[1] - self.angle_minmax[0]
-             )], dim=-1
+            [outputs_matched["boxes"], outputs_matched["angle"]], dim=-1
         )
         tgt_rbox = torch.cat(  # [num_tgt_boxes, 5]
             [targets_matched["boxes"], targets_matched["angle"]], dim=-1
@@ -359,8 +378,8 @@ class FewNetLoss(nn.Module):
             transform (cx, cy, w, h, theta) to quad version,
             1280 should be replaced by the proper imgH and imgW
             """
-            out_matched_boxes = obb2poly(out_matched_boxes * 1280, self.angle_version)
-            tgt_matched_boxes = obb2poly(tgt_matched_boxes * 1280, self.angle_version)
+            out_matched_boxes = obb2poly(out_matched_boxes, self.angle_version)
+            tgt_matched_boxes = obb2poly(tgt_matched_boxes, self.angle_version)
             
         assert out_matched_boxes.shape[-1] >= 8 and tgt_matched_boxes.shape[-1] >= 8, (
             "your out_matched_boxes.shape and tgt_matched_boxes.shape are: {}, {}".format(
