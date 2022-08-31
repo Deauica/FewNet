@@ -78,9 +78,8 @@ def cost_logits_func(out_prob: Tensor, tgt_labels: Tensor):
     """
     if len(out_prob.shape) < 2:
         out_prob = out_prob.unsqueeze(dim=-1)
-    
-    out_neg_prob = 1 - out_prob
-    return (out_prob * out_prob + out_neg_prob * out_neg_prob).tile([len(tgt_labels), ])
+    cost_logits = F.binary_cross_entropy(out_prob, torch.ones_like(out_prob))
+    return cost_logits.tile([len(tgt_labels), ])
 
 
 def cost_angle_func(out_angle: Tensor, tgt_angle: Tensor):

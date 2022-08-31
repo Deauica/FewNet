@@ -18,12 +18,12 @@ class FewNetPostProcess(Configurable):
     Detailed description for angle definition in rotated box, please refer to:
     https://github.com/open-mmlab/mmrotate/blob/main/docs/en/intro.md
     """
-    logits_threshold = State(default=0.5)  # 0.45 for IC15 and 0.5 for others
+    logits_threshold = State(default=0)  # 0.45 for IC15 and 0.5 for others
     angle_version = State(default="le135")
     strides = State(default=(8, 16, 32))
     vis_score_map = State(default=False)
     
-    def __init__(self, logits_threshold=0.5, angle_version="le135", **kwargs):
+    def __init__(self, logits_threshold=0, angle_version="le135", **kwargs):
         super(FewNetPostProcess, self).__init__(**kwargs)
         
         arg_values = inspect.getfullargspec(self.__init__)
