@@ -347,10 +347,17 @@ class FewNetLoss(nn.Module):
         Returns:
             l: sum of bce logits.
         """
-        l_matched_pos = self._loss_logits(out_matched_logits, 1)
+        num_matched_logits = len(out_matched_logits)
+        num_logits = len(out_logits)
+        
         l_matched_neg = self._loss_logits(out_matched_logits, 0)
         l_neg = self._loss_logits(out_logits, 0)
-        return l_neg - l_matched_neg + l_matched_pos
+        l_unmatched_neg = (
+                (l_neg - l_matched_neg) * num_matched_logits /
+                (num_logits - num_matched_logits)
+        )
+        l_matched_pos = self._loss_logits(out_matched_logits, 1)
+        return l_matched_pos + l_unmatched_neg
 
 
 if __name__ == "__main__":

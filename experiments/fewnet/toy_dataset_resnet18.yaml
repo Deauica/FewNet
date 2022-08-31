@@ -52,8 +52,8 @@ define:
             learning_rate:  
                 class: DecayLearningRate
                 lr: 0.0005  # pre-train: 1e-3, fine-tune: 5e-4
-                epochs: 400
-        epochs: 400
+                epochs: 100
+        epochs: 100
 
     validation: &validate
         class: ValidationSettings

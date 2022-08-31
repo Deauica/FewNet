@@ -86,11 +86,14 @@ class FewNetPostProcess(Configurable):
                 [boxes, angles, score.unsqueeze(dim=-1)], dim=-1).cpu().numpy()
             boxes = obb2poly_np(boxes, version=self.angle_version)  # [num_boxes, 9]
             
-            t_boxes = boxes[:, :-1].reshape([len(boxes), -1, 2])  # 3d tensor, [num_boxes, num_points, 2]
-            t_score = boxes[:, -1]  # 1d vector
-            
-            boxes_batch.append(t_boxes)
-            scores_batch.append(t_score)
+            if boxes.size > 0:
+                t_boxes = boxes[:, :-1].reshape([len(boxes), -1, 2])  # 3d tensor, [num_boxes, num_points, 2]
+                t_score = boxes[:, -1]  # 1d vector
+                
+                boxes_batch.append(t_boxes)
+                scores_batch.append(t_score)
+            else:
+                pass
         
         if self.vis_score_map or kwargs.get("vis_score_map", False):
             self.visualize_score_map(data, outputs)
