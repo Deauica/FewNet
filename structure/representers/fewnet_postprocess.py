@@ -23,7 +23,7 @@ class FewNetPostProcess(Configurable):
     strides = State(default=(8, 16, 32))
     vis_score_map = State(default=False)
     
-    def __init__(self, logits_threshold=0.4, angle_version="le135", **kwargs):
+    def __init__(self, logits_threshold=0., angle_version="le135", **kwargs):
         super(FewNetPostProcess, self).__init__(**kwargs)
         
         arg_values = inspect.getfullargspec(self.__init__)
@@ -93,7 +93,8 @@ class FewNetPostProcess(Configurable):
                 boxes_batch.append(t_boxes)
                 scores_batch.append(t_score)
             else:
-                pass
+                boxes_batch.append([])
+                scores_batch.append([])
         
         if self.vis_score_map or kwargs.get("vis_score_map", False):
             self.visualize_score_map(data, outputs)
