@@ -153,7 +153,7 @@ class FewNetLoss(nn.Module):
             cost_logits_func, cost_rbox_func  # cost_rbox_func
         )
         
-        self.loss_logits_func = self._loss_logits
+        self.loss_logits_func = self.loss_logits
         
         self.max_target_num = max_target_num
         self.angle_version = angle_version
@@ -248,9 +248,11 @@ class FewNetLoss(nn.Module):
         
         # step 2. matching between outputs and targets
         # Now, outputs and targets contain no score_map
+        B, num_selected_features = outputs["boxes"].shape[:2]
         indices = self.matcher(_outputs, targets)
         
-        outputs_matched = self.gen_output_matched(_outputs, indices)  # [str, [num_tgt_boxes, ...]]
+        outputs_matched, outputs_unmatched= self.gen_output_matched(
+            _outputs, indices, num_selected_features=num_selected_features)  # [str, [num_tgt_boxes, ...]]
         targets_matched = self.gen_target_matched(targets, indices)
 
         # step 3. loss for rotated boxes -- 注意 gwd_loss 的计算中，是否可以针对 normalized coords.
@@ -268,8 +270,11 @@ class FewNetLoss(nn.Module):
         
         # step 4. loss for logits
         # the loss_logits should contain all the matched and unmatched samples
+        # loss_logits = self.loss_logits_func(
+        #     outputs_matched["logits"], outputs_rbox, tgt_rbox
+        # )
         loss_logits = self.loss_logits_func(
-            outputs_matched["logits"], outputs_rbox, tgt_rbox
+            outputs_matched["logits"], outputs_unmatched["logits"]
         )
         N = outputs["logits"].shape[0] * outputs["logits"].shape[1]  # B * num_selected_features
         loss_dict.update(
@@ -280,11 +285,17 @@ class FewNetLoss(nn.Module):
             loss += _
         return loss, loss_dict
     
-    def gen_output_matched(self, outputs, indices):
+    def gen_output_matched(self, outputs, indices, num_selected_features, ratio=3):
         """
         Returns:
-            t (Dict[str, Tensor]): a dict containing at least "bbox", "logits", "angle".
+            matched_t (Dict[str, Tensor]): a dict containing at least "bbox", "logits", "angle".
               dim of Tensor is [num_tgt_boxes, ...]
+            
+            unmatched_t (Dict[str, Tensor]): a dict containing the same key as matched_t, but for
+              unmatched elements.
+              
+        Notes:
+            - Current the ratio is pos : neg = 1 : 3
         """
         assert "score_map" not in outputs, (
             "Call this function after self.matcher please"
@@ -293,10 +304,23 @@ class FewNetLoss(nn.Module):
         batch_idx = torch.cat([ torch.full((s,), i) for i, s in enumerate(sizes)])
         src_idx = torch.cat([src_indice for (src_indice, _) in indices])
         
-        t = OrderedDict()  # [num_tgt_boxes, ...]
+        batch_idx_unmatched = torch.cat(
+            [torch.full((s * ratio, ), i) for i, s in enumerate(sizes)]
+        )
+        t = torch.ones(num_selected_features)
+        src_idx_unmatched = torch.cat([
+            torch.nonzero(
+                torch.scatter(t.to(src_indice.device), 0, src_indice, 0)
+            ).flatten()[: sizes[i]*ratio]
+            for i, (src_indice, _) in enumerate(indices)
+        ])
+        
+        matched_t = OrderedDict()  # [num_tgt_boxes, ...]
+        unmatched_t = OrderedDict()
         for k in outputs.keys():
-            t[k] = outputs[k][batch_idx, src_idx]
-        return t
+            matched_t[k] = outputs[k][batch_idx, src_idx]
+            unmatched_t[k] = outputs[k][batch_idx_unmatched, src_idx_unmatched]
+        return matched_t, unmatched_t
     
     def gen_target_matched(self, targets, indices, keys=("boxes", "angle")):
         """Generate matched targets based on `targets` and `indices`.
@@ -343,19 +367,24 @@ class FewNetLoss(nn.Module):
             )  # shape of out_score_map should be same as tgt_score_map
         return loss_sum / N_f
     
-    def loss_logits(self, out_matched_logits, out_logits):
+    def loss_logits(self, out_matched_logits, out_unmatched_logits):
         """Calculate bce loss for logits in output. Currently,
         we think the matched boxes should be positive and the others are negative.
         Current implementation is redundant due the the historical issue.
         
         Args:
             out_matched_logits (Tensor): tensor of dim [num_tgt_boxes_batch, 1]
-            out_logits (Tensor): tensor of dim [bs * num_selected_features, 1]
+            out_unmatched_logits (Tensor): tensor of dim [num_tgt_boxes_batch * ratio, 1]
             
         Returns:
             l: sum of bce logits.
         """
-        pass
+        l_matched_pos = F.binary_cross_entropy(
+            out_matched_logits, torch.ones_like(out_matched_logits), reduction="sum")
+        l_unmatched_neg = F.binary_cross_entropy(
+            out_unmatched_logits, torch.zeros_like(out_unmatched_logits), reduction="sum"
+        )
+        return l_matched_pos + l_unmatched_neg
     
     def _loss_logits(self, out_matched_logits, out_matched_boxes, tgt_matched_boxes,
                      poly_iou_threshold=0.5):
