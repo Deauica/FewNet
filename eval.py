@@ -27,6 +27,7 @@ def main():
     parser.add_argument('--batch_size', type=int,
                         help='Batch size for training')
     parser.add_argument('--resume', type=str, help='Resume from checkpoint')
+    parser.add_argument('--num_workers', type=int, help='Number of dataloader workers')
     parser.add_argument('--result_dir', type=str, default='./results/', help='path to save results')
     parser.add_argument('--epochs', type=int, help='Number of training epochs')
     parser.add_argument('--start_iter', type=int,

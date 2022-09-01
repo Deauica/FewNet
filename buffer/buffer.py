@@ -724,6 +724,7 @@ elif stage == 30:
     import torch
     from typing import List
     import cv2
+    import os
     
     RGB_MEAN = np.array([122.67891434, 116.66876762, 104.00698793])
     
@@ -735,9 +736,14 @@ elif stage == 30:
             img = img.cpu().numpy()
             img = np.transpose(img, (1, 2, 0))  # [H, W, C]
             img += RGB_MEAN.reshape([1, 1, -1])
+            img = img.clip(0, 255)
             results.append(img.astype(np.int32))
         return results
     
+    for jpg_name in os.listdir("debug"):
+        if jpg_name.startswith("results") or jpg_name.startswith("t_sm") \
+                or jpg_name.startswith("a_poly"):
+            os.remove(os.path.join("debug", jpg_name))
     
     if targets is not None:
         # step 1: check for image
@@ -750,18 +756,36 @@ elif stage == 30:
 
         # step 2: check for score_amp
         strides = (8, 16, 32)
-        for i, score_maps in enumerate(targets["score_map"]):
-            stride = strides[i]
-            score_maps = score_maps.cpu().numpy()
-            for imgnum, score_map in enumerate(score_maps):
-                cv2.imwrite(
-                    "debug/t_sm_{}_{}.jpg".format(stride, imgnum),
-                    cv2.applyColorMap(
-                        (score_map * 255).astype(np.uint8), cv2.COLORMAP_JET
+        if "score_map" in targets:
+            for i, score_maps in enumerate(targets["score_map"]):
+                stride = strides[i]
+                score_maps = score_maps.cpu().numpy()
+                for imgnum, score_map in enumerate(score_maps):
+                    cv2.imwrite(
+                        "debug/t_sm_{}_{}.jpg".format(stride, imgnum),
+                        cv2.applyColorMap(
+                            (score_map * 255).astype(np.uint8), cv2.COLORMAP_JET
+                        )
                     )
-                )
-                
-        # step 3: check for rbox
+
+        # step 3: check for rbox based on targets["angle"] and targets["boxes"]
+        t_rboxes = [
+            torch.cat([t_boxes, t_angle], dim=-1)
+            for t_boxes, t_angle in zip(targets["boxes"], targets["angle"])
+        ]
+        
+        from decoders.utils import obb2poly
+        t_polys = [
+            obb2poly(t_rbox, "le135").cpu().numpy()
+            for t_rbox in t_rboxes
+        ]
+        for i, (t_poly, img) in enumerate(zip(t_polys, results)):
+            t_poly = t_poly.reshape([-1, 4, 2])
+            cv2.polylines(img, t_poly, True, (0, 255, 0), 3)
+            cv2.imwrite(
+                "debug/a_polyed_{}.jpg".format(i),
+                img
+            )
         pass
 
 elif stage == 31:

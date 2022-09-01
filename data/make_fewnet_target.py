@@ -145,6 +145,24 @@ class MakeFewNetTarget(Configurable):
         data["boxes"] = rboxes[:, :4]
         data["angle"] = rboxes[:, 4:]
         
+        if self.debug:
+            try:
+                from decoders.utils import obb2poly_np
+            except Exception as e:
+                import sys
+                sys.path.append("..")
+                from decoders.utils import obb2poly_np
+            
+            """ visualize rotated bbox """
+            rboxes = np.concatenate(
+                (data["boxes"], data["angle"], np.ones_like(data["angle"])), axis=-1)
+            rotated_poly = obb2poly_np(rboxes, self.angle_version)[:, :-1].astype(np.int32)
+            cv2.polylines(data["image"], rotated_poly.reshape([-1, 4, 2]), True, (0, 255, 0), 3)
+            cv2.imwrite(
+                "debug/r_poly_{}".format(os.path.basename(data["filename"])),
+                data["image"]
+            )
+        
         # step 2. generate score maps
         score_maps = list()
         for aug in self.resizer:

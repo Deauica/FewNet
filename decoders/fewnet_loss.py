@@ -226,10 +226,7 @@ class FewNetLoss(nn.Module):
             l_box[:, 1::2] = l_box[:, 1::2] * imgH
             
             l_boxes.append(l_box)
-            l_angles.append(
-                self.scale(targets["angle"][i, :num_tgt_box], self.angle_minmax[0],
-                           self.angle_minmax[1])
-            )
+            l_angles.append(targets["angle"][i, :num_tgt_box])
         targets["boxes"], targets["angle"] = l_boxes, l_angles  # List of [num_tgt_box, _]
         
         # prepare for _outputs during calculate rbox loss
@@ -251,7 +248,7 @@ class FewNetLoss(nn.Module):
         B, num_selected_features = outputs["boxes"].shape[:2]
         indices = self.matcher(_outputs, targets)
         
-        outputs_matched, outputs_unmatched= self.gen_output_matched(
+        outputs_matched, outputs_unmatched = self.gen_output_matched(
             _outputs, indices, num_selected_features=num_selected_features)  # [str, [num_tgt_boxes, ...]]
         targets_matched = self.gen_target_matched(targets, indices)
 
