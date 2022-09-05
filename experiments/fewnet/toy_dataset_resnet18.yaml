@@ -17,9 +17,9 @@ define:
                     weight_cost_logits: 1
                     weight_cost_boxes: 10  # stress on boxes
 
-                    weight_loss_score_map: 5
-                    weight_loss_logits: 1
-                    weight_loss_rbox: 10   # change the weight
+                    weight_loss_score_map: 1
+                    weight_loss_logits: 0
+                    weight_loss_rbox: 0   # change the weight
 
 
         representer:
