@@ -141,7 +141,7 @@ class FewNetLoss(nn.Module):
                  weight_cost_logits=1.0, weight_cost_boxes=1.0,
                  weight_loss_score_map=1.0, weight_loss_logits=1.0, weight_loss_rbox=1.0,
                  max_target_num=100, angle_version="le135",
-                 rbox_loss_type="gwd", rbox_fun="log1p", rbox_tau=1.0):
+                 rbox_loss_type="gwd", rbox_fun="log1p", rbox_tau=1.0, **kwargs):
         super(FewNetLoss, self).__init__()
         self.weight_cost_logits, self.weight_cost_boxes = (
             weight_cost_logits, weight_cost_boxes
@@ -177,6 +177,12 @@ class FewNetLoss(nn.Module):
             loss_type=self.rbox_loss_type, fun=self.rbox_fun, tau=self.rbox_tau,
             reduction="sum"  # 这里仍然采用 reduction
         )
+        
+        if kwargs.get("debug", True):
+            from .utils import DebugFewNetLoss
+            self.few_logger = DebugFewNetLoss(self.angle_version)
+        else:
+            self.few_logger = None
     
     def scale(self, src, amin, amax):
         return amin + src * (amax - amin)
@@ -249,6 +255,9 @@ class FewNetLoss(nn.Module):
         # Now, outputs and targets contain no score_map
         B, num_selected_features = outputs["boxes"].shape[:2]
         indices = self.matcher(_outputs, targets)
+        
+        if self.few_logger is not None:
+            self.few_logger.plot_out_tgt_boxes(targets, _outputs, indices)
         
         outputs_matched, outputs_unmatched = self.gen_output_matched(
             _outputs, indices, num_selected_features=num_selected_features)  # [str, [num_tgt_boxes, ...]]

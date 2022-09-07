@@ -415,7 +415,109 @@ def poly_iou(poly_det, poly_gt, zero_division=0):
     return area_inters / area_union if area_union != 0 else zero_division
 
 
-def plot_out_tgt_boxes(targets, ):
-    """Plot out_boxes and tgt_boxes on image
-    """
-    pass
+# This class is only used for debug
+import numpy as np
+import torch
+from typing import List
+import cv2
+import os
+
+
+class DebugFewNetLoss(object):
+    def __init__(self, angle_version):
+        self.plot_call_num = 0
+        self.RGB_MEAN = np.array([122.67891434, 116.66876762, 104.00698793])
+        self.angle_version = "le135"
+        if os.path.exists("debug/loss_debug"):
+            import shutil
+            shutil.rmtree("debug/loss_debug")
+        os.mkdir("debug/loss_debug")
+
+    def norm_tensor_2_ndarray(self, t) -> List[np.ndarray]:
+        t = t * 255
+    
+        results = []
+        for img in torch.unbind(t, dim=0):
+            img = img.cpu().numpy()
+            img = np.transpose(img, (1, 2, 0))  # [H, W, C]
+            img += self.RGB_MEAN.reshape([1, 1, -1])
+            img = img.clip(0, 255)
+            results.append(img.astype(np.int32))
+        return results
+    
+    
+    def plot_out_tgt_boxes(self, targets, outputs, indices):
+        # step 0: environ preparation
+        self.plot_call_num += 1
+        
+        # step 1: generate images
+        tgt_images = self.norm_tensor_2_ndarray(targets["image"])  # List[ndarray]
+        
+        # step 2: generate {tgt, out}_boxes
+        tgt_boxes, out_boxes = [], []  # len == number of images
+        out_unmatched_boxes = []
+        
+        
+        for (_tgt_boxes, _out_boxes, _tgt_angles, _out_angles, (out_idxes, tgt_idxes)) in zip(
+                targets["boxes"], outputs["boxes"], targets["angle"], outputs["angle"], indices):
+            """ for each image """
+            t = torch.ones(_out_boxes.shape[0])
+            out_unmatched_idxes = torch.nonzero(
+                torch.scatter(t.to(out_idxes.device), 0, out_idxes, 0)
+            ).flatten()
+            
+            tgt_boxes_with_score = torch.cat(
+                [_tgt_boxes[tgt_idxes], _tgt_angles[tgt_idxes],
+                 torch.ones([_tgt_boxes[tgt_idxes].shape[0], 1], device=_tgt_boxes.device)],
+                dim=-1
+            )
+            out_boxes_with_score = torch.cat(
+                [_out_boxes[out_idxes], _out_angles[out_idxes],
+                 torch.ones([_out_boxes[out_idxes].shape[0], 1], device=_out_boxes.device)],
+                dim=-1
+            )
+            out_unmatched_boxes_with_score = torch.cat(
+                [_out_boxes[out_unmatched_idxes], _out_angles[out_unmatched_idxes],
+                 torch.ones([_out_boxes[out_unmatched_idxes].shape[0], 1], device=_out_boxes.device)],
+                dim=-1
+            )
+            tgt_boxes.append(tgt_boxes_with_score.detach().cpu().numpy())
+            out_boxes.append(out_boxes_with_score.detach().cpu().numpy())
+            out_unmatched_boxes.append(out_unmatched_boxes_with_score.detach().cpu().numpy())
+        
+        # transform {tgt, out}_boxes to quad version
+        tgt_boxes = [
+            obb2poly_np(tgt_boxes_per_img, self.angle_version)[:, :-1]
+            for tgt_boxes_per_img in tgt_boxes
+        ]
+        out_boxes = [
+            obb2poly_np(out_boxes_per_img, self.angle_version)[:, :-1]
+            for out_boxes_per_img in out_boxes
+        ]
+        out_unmatched_boxes = [
+            obb2poly_np(out_unmatched_boxes_per_img, self.angle_version)[:, :-1]
+            for out_unmatched_boxes_per_img in out_unmatched_boxes
+        ]
+        
+        # step 3: plot boxes to the images
+        for i, (tgt_img, tgt_boxes_per_img, out_boxes_per_img, out_unmatched_boxes_per_img) in enumerate(
+                zip(tgt_images, tgt_boxes, out_boxes, out_unmatched_boxes)):
+            """
+            G: gt,
+            R: matched out_boxes,
+            B: unmatched_out_boxes
+            """
+            cv2.polylines(tgt_img, tgt_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
+                          True, (0, 255, 0), 2)
+            cv2.polylines(tgt_img, out_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
+                          True, (0, 0, 255), 2)
+            cv2.polylines(tgt_img, out_unmatched_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
+                          True, (255, 0, 0), 2)
+            cv2.imwrite(
+                "debug/loss_debug/ld_{}_{}".format(
+                    self.plot_call_num,
+                    os.path.basename(targets["filename"][i])if "filename" in targets else
+                    str(i) + ".jpg"
+                ),
+                tgt_img
+            )
