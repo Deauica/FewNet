@@ -185,9 +185,10 @@ class MakeFewNetTarget(Configurable):
         if self.debug:
             # 可视化 score_maps 和 score_masks
             for _, stride in enumerate(self.strides):
-                score_map = cv2.applyColorMap(
-                    (data["score_map"][_] * 255).astype(np.uint8), cv2.COLORMAP_JET
-                )
+                # score_map = cv2.applyColorMap(
+                #     (data["score_map"][_] * 255).astype(np.uint8), cv2.COLORMAP_JET
+                # )
+                score_map = (data["score_map"][_] * 255).astype(np.int32)
                 cv2.imwrite(
                     os.path.join("debug", f"score_map_{stride}.jpg"),
                     score_map

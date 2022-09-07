@@ -372,6 +372,7 @@ class FewNetLoss(nn.Module):
             - Simply smooth l1 loss can not be directly used due to the extreme ratio of neg : pos.
             - In order to calculate proper ratio, we only choose pos : neg = 1 : 3.
             - N_f should be also changed.
+            - Currently, no smooth l1 loss is utilized.
         """
         assert tgt_score_masks is not None, (
             "Please check your make_fewnet_target.py, "
@@ -386,8 +387,9 @@ class FewNetLoss(nn.Module):
             positive_mask, negative_mask = tgt_score_mask, 1 - tgt_score_mask
             positive_count = int(positive_mask.sum())
             negative_count = positive_count * ratio
-            loss = F.smooth_l1_loss(  # [B, Hi, Wi]
-                out_score_map, tgt_score_map, reduction="none")
+            # loss = F.smooth_l1_loss(  # [B, Hi, Wi]
+            #     out_score_map, tgt_score_map, reduction="none")
+            loss = F.binary_cross_entropy(out_score_map, tgt_score_map, reduction="none")
             positive_loss, negative_loss = loss * positive_mask, loss * negative_mask
             negative_loss, _ = torch.topk(negative_loss.flatten(), negative_count)
             
