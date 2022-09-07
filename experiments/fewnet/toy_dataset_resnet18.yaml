@@ -21,7 +21,6 @@ define:
                     weight_loss_logits: 3  # 3
                     weight_loss_rbox: 10   # 10
 
-
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
             vis_score_map: True  # need visualize score_map
