@@ -248,7 +248,7 @@ class FewNetLoss(nn.Module):
         # step 2. matching between outputs and targets
         # Now, outputs and targets contain no score_map
         B, num_selected_features = outputs["boxes"].shape[:2]
-        indices = self.matcher(_outputs, targets)
+        indices = self.matcher(_outputs, targets, debug_same=True)
         
         outputs_matched, outputs_unmatched = self.gen_output_matched(
             _outputs, indices, num_selected_features=num_selected_features)  # [str, [num_tgt_boxes, ...]]

@@ -29,7 +29,7 @@ class HungarianMatcher(nn.Module):
         self.angle_minmax = angle_minmax
 
     @torch.no_grad()
-    def forward(self, outputs, targets):
+    def forward(self, outputs, targets, **kwargs):
         """ Performs the matching
         
         Args:
@@ -58,6 +58,16 @@ class HungarianMatcher(nn.Module):
         Notes:
             - raw angle of outputs is (0, 1) scope, so we need proper pre-process.
         """
+        # outputs' order is same as targets
+        if kwargs.get("debug_same", False):
+            indices = []
+            for tgt_boxes in targets["boxes"]:
+                indices.append(
+                    (range(len(tgt_boxes)), range(len(tgt_boxes)))
+                )
+            return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
+                    for i, j in indices]
+        
         # pre-process for outputs["angle"]
         if self.angle_minmax is not None:
             outputs["angle"] = (
