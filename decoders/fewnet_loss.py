@@ -250,6 +250,10 @@ class FewNetLoss(nn.Module):
         B, num_selected_features = outputs["boxes"].shape[:2]
         indices = self.matcher(_outputs, targets, debug_same=True)
         
+        # only for debug starts
+        loss_dict.update(indices_matched=indices)
+        # only for debug ends
+        
         outputs_matched, outputs_unmatched = self.gen_output_matched(
             _outputs, indices, num_selected_features=num_selected_features)  # [str, [num_tgt_boxes, ...]]
         targets_matched = self.gen_target_matched(targets, indices)
@@ -280,8 +284,10 @@ class FewNetLoss(nn.Module):
             loss_logits=self.weight_loss_logits * loss_logits/N)
         
         
-        for _ in loss_dict.values():
-            loss += _
+        for k, v in loss_dict.items():
+            if "loss" in k:
+                loss += v
+        
         return loss, loss_dict
     
     def gen_output_matched(self, outputs, indices, num_selected_features, ratio=3):

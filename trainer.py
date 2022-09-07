@@ -139,8 +139,11 @@ class Trainer:
             self.logger.add_scalar('loss', loss, step)
             self.logger.add_scalar('learning_rate', self.current_lr, step)
             for name, metric in metrics.items():
-                self.logger.add_scalar(name, metric.mean(), step)
-                self.logger.info('%s: %6f' % (name, metric.mean()))
+                if hasattr(metric, "mean"):
+                    self.logger.add_scalar(name, metric.mean(), step)
+                    self.logger.info('%s: %6f' % (name, metric.mean()))
+                else:
+                    self.logger.info(f"{name} : \n{metric}")
 
             self.logger.report_time('Logging')
 

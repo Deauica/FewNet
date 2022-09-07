@@ -24,8 +24,8 @@ define:
                     weight_cost_boxes: 10  # stress on boxes
 
                     weight_loss_score_map: 1
-                    weight_loss_logits: 0
-                    weight_loss_rbox: 0    # change the weight
+                    weight_loss_logits: 1
+                    weight_loss_rbox: 1    # change the weight
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
@@ -61,7 +61,7 @@ define:
                 weight_decay: 0.0001
             learning_rate:  
                 class: DecayLearningRate
-                lr: 0.01  # pre-train: 1e-3, fine-tune: 5e-4
+                lr: 0.0001  # pre-train: 1e-3, fine-tune: 5e-4
                 epochs: 50
         epochs: 50
 
