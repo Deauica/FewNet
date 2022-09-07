@@ -53,13 +53,12 @@ define:
             dir_path: model
             save_interval: 18000
             signal_path: save
-        scheduler: 
+        scheduler:
             class: OptimizerScheduler
             optimizer: "AdamW"
             optimizer_args:
-                lr: 0.0005  # pre-train: 1e-3, fine-tune: 5e-4
-                weight_decay: 0.0001  # 1e-4
-                # no momentum
+                lr: 0.007
+                weight_decay: 0.0001
             learning_rate:  
                 class: DecayLearningRate
                 lr: 0.01  # pre-train: 1e-3, fine-tune: 5e-4

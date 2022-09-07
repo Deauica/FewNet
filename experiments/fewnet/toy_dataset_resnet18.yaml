@@ -50,12 +50,12 @@ define:
             signal_path: save
         scheduler: 
             class: OptimizerScheduler
-            optimizer: "AdamW"
+            optimizer: "SGD"
             optimizer_args:
-                lr: 0.0005  # pre-train: 1e-3, fine-tune: 5e-4
-                weight_decay: 0.0001  # 1e-4
-                # no momentum
-            learning_rate:  
+                lr: 0.007
+                momentum: 0.9
+                weight_decay: 0.0001
+            learning_rate:
                 class: FewNetLearningRate
                 lr: 0.001  # pre-train: 1e-3, fine-tune: 5e-4
         epochs: 100
