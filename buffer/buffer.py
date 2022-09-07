@@ -695,6 +695,10 @@ elif stage == 29:
         img_file = anno_file.split(".")[0][4:] + ".jpg"
         img_path = os.path.join(img_dir, img_file)
         gt_path = os.path.join(gt_dir, img_file + ".txt")
+        if not os.path.exists(img_path):
+            img_file = img_file.replace(".jpg", ".JPG")
+            img_path = os.path.join(img_dir, img_file)
+            gt_path = os.path.join(gt_dir, img_file + ".txt")
         
         assert os.path.exists(img_path) and os.path.exists(gt_path), (
             "img_path  or gt_path do not exist: {}, {}".format(img_path, gt_path)
