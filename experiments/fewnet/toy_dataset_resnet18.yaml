@@ -17,9 +17,9 @@ define:
                     weight_cost_logits: 3
                     weight_cost_boxes: 10  # stress on boxes
 
-                    weight_loss_score_map: 5 # 5
-                    weight_loss_logits: 3  # 3
-                    weight_loss_rbox: 10   # 10
+                    weight_loss_score_map: 1 # 5
+                    weight_loss_logits: 0  # 3
+                    weight_loss_rbox: 0   # 10
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
@@ -49,14 +49,13 @@ define:
             signal_path: save
         scheduler: 
             class: OptimizerScheduler
-            optimizer: "SGD"  # SGD instead of AdamW
+            optimizer: "AdamW"
             optimizer_args:
-                lr: 0.007
-                momentum: 0.9
+                lr: 0.0001
                 weight_decay: 0.0001
             learning_rate:
                 class: FewNetLearningRate
-                lr: 0.001  # pre-train: 1e-3, fine-tune: 5e-4
+                lr: 0.0001  # pre-train: 1e-3, fine-tune: 5e-4
         epochs: 50
 
     validation: &validate
