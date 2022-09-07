@@ -860,7 +860,11 @@ elif stage == 33:
         from eval import Eval
     except Exception as e:
         import sys
-        sys.path.append("..")
+        import os
+        if os.path.exists(os.path.join(".", "concern")):
+            sys.path.append(".")
+        else:
+            sys.path.append("..")
         from concern.config import Config, Configurable
         from eval import Eval
         

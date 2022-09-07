@@ -239,7 +239,9 @@ class FewNetLoss(nn.Module):
         
         # step 1. loss for score_maps
         out_score_maps, tgt_score_maps = outputs.pop("score_map"), targets.pop("score_map")
-        loss_score_map = self.loss_score_map(out_score_maps, tgt_score_maps)
+        tgt_score_masks = targets.pop("score_mask", None)
+        
+        loss_score_map = self.loss_score_map(out_score_maps, tgt_score_maps, tgt_score_masks)
         loss_dict.update(
             loss_score_map=self.weight_loss_score_map * loss_score_map)
         
@@ -353,15 +355,45 @@ class FewNetLoss(nn.Module):
             t[k] = _targets[k][batch_idx, tgt_idx]
         return t
 
-    def loss_score_map(self, out_score_maps: List[Tensor], tgt_score_maps: List[Tensor]):
-        N_f = 0
-        loss_sum = 0
+    def loss_score_map(self,
+                       out_score_maps: List[Tensor], tgt_score_maps: List[Tensor],
+                       tgt_score_masks: List[Tensor] = None,
+                       *args, **kwargs):
+        """ Calculate loss for score_map
+        Args:
+            out_score_maps (Tensor): List of out_score_map with shape [B, Hi, Wi].
+            tgt_score_maps (Tensor): List of tgt_score_map with shape [B, Hi, Wi].
+            tgt_score_masks(Tensor): List of tgt_score_mask with shape [B, Hi, Wi] if not None.
+            
+        Returns:
+            loss (Tensor): Scalar that represents the loss for score_map.
+            
+        Notes:
+            - Simply smooth l1 loss can not be directly used due to the extreme ratio of neg : pos.
+            - In order to calculate proper ratio, we only choose pos : neg = 1 : 3.
+            - N_f should be also changed.
+        """
+        assert tgt_score_masks is not None, (
+            "Please check your make_fewnet_target.py, "
+            "since tgt_score_masks should not be None"
+        )
+        N_f, loss_sum = 0, 0
+        ratio = 3  # pos : neg = 1 : ratio
         
-        for _, (out_score_map, tgt_score_map) in enumerate(zip(out_score_maps, tgt_score_maps)):
-            N_f += torch.numel(out_score_map)  # B * Hi * Wi
-            loss_sum += F.smooth_l1_loss(
-                input=out_score_map, target=tgt_score_map, reduction="sum"
-            )  # shape of out_score_map should be same as tgt_score_map
+        for _, (out_score_map, tgt_score_map, tgt_score_mask) in enumerate(
+                zip(out_score_maps, tgt_score_maps, tgt_score_masks)):
+            tgt_score_mask = tgt_score_mask.float()
+            positive_mask, negative_mask = tgt_score_mask, 1 - tgt_score_mask
+            positive_count = int(positive_mask.sum())
+            negative_count = positive_count * ratio
+            loss = F.smooth_l1_loss(  # [B, Hi, Wi]
+                out_score_map, tgt_score_map, reduction="none")
+            positive_loss, negative_loss = loss * positive_mask, loss * negative_mask
+            negative_loss, _ = torch.topk(negative_loss.flatten(), negative_count)
+            
+            N_f += positive_count + negative_count
+            loss_sum += positive_loss.sum() + negative_loss.sum()
+            
         return loss_sum / N_f
     
     def loss_logits(self, out_matched_logits, out_unmatched_logits):

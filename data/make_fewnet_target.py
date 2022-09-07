@@ -126,7 +126,9 @@ class MakeFewNetTarget(Configurable):
               "boxes": [num_tgt_boxes_sample, 4], (x, y, w, h)
               "angle": [num_tgt_boxes_sample, 1], value depends on the `angle_version`
               "score_map": List[ndarray], score_map[0, 1, 2] is for stride (8, 16, 32), respectively.
-                 score_map[i].shape == [H/stride, W/stride].
+                 score_map[i].shape == [H/stride, W/stride]
+              "score_mask": List[ndarray], shape is same as "score_map". score_mask[i] is the mask
+                 for score_map[i].
         """
         # step 1. generate rotated box information
         rboxes = list()
@@ -163,18 +165,25 @@ class MakeFewNetTarget(Configurable):
                 data["image"]
             )
         
-        # step 2. generate score maps
-        score_maps = list()
+        # step 2. generate score maps and the corresponding gt_mask
+        score_maps, score_masks = [], []
         for aug in self.resizer:
             src_canvas = np.full(data["image"].shape[0:2], self.bg_value, dtype=np.float32)
             aug_canvas = aug.augment_image(src_canvas)  # 这里采用的是 imgaug 的方式
             aug_polys = self.may_aug_polys(aug, data["image"].shape, data["polygons"])
+            # score_mask = cv2.fillPoly(
+            #     np.zeros_like(aug_canvas),
+            #     [aug_poly.astype(np.int32) for aug_poly in aug_polys], 1.
+            # )
             score_map = self.gen_single_score_map(aug_canvas, aug_polys)
+            score_mask = score_map > self.bg_value   # greater than self.bg_value
             score_maps.append(score_map)
+            score_masks.append(score_mask)
         data["score_map"] = score_maps
+        data["score_mask"] = score_masks
         
         if self.debug:
-            # 可视化 score_maps
+            # 可视化 score_maps 和 score_masks
             for _, stride in enumerate(self.strides):
                 score_map = cv2.applyColorMap(
                     (data["score_map"][_] * 255).astype(np.uint8), cv2.COLORMAP_JET
@@ -182,6 +191,10 @@ class MakeFewNetTarget(Configurable):
                 cv2.imwrite(
                     os.path.join("debug", f"score_map_{stride}.jpg"),
                     score_map
+                )
+                cv2.imwrite(
+                    os.path.join("debug", f"score_mask_{stride}.jpg"),
+                    (data["score_mask"][_] * 255).astype(np.int32)
                 )
 
         return data

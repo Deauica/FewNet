@@ -231,7 +231,7 @@ class FewNetCollate(concern.config.Configurable):
         elem = batch[0]
         keys = elem.keys()
         
-        # for image and score_map
+        # for image and score_map and score_mask
         result["image"] = self.transform_image(  # [B, 3, max_h, max_w]
             [item["image"] for item in batch]
         )
@@ -241,6 +241,13 @@ class FewNetCollate(concern.config.Configurable):
             result["score_map"].append(  # [B, max_hi, max_wi]
                 self.transform_image(
                     [item["score_map"][i] for item in batch]
+                )
+            )
+        result["score_mask"] = []
+        for i in range(feat_level_num):
+            result["score_mask"].append(  # [B, max_hi, max_wi]
+                self.transform_image(
+                    [item["score_mask"][i] for item in batch]
                 )
             )
             
