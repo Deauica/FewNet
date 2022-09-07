@@ -14,11 +14,11 @@ define:
                 decoder: build_fewnet
                 loss_class: FewNetLoss
                 loss_kwargs:
-                    weight_cost_logits: 3
-                    weight_cost_boxes: 10  # stress on boxes
+                    weight_cost_logits: 0
+                    weight_cost_boxes: 1  # stress on boxes
 
                     weight_loss_score_map: 1 # 5
-                    weight_loss_logits: 0  # 3
+                    weight_loss_logits: 1  # 3
                     weight_loss_rbox: 0   # 10
 
         representer:
