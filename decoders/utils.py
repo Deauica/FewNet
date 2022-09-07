@@ -413,3 +413,9 @@ def poly_iou(poly_det, poly_gt, zero_division=0):
     area_inters = poly_intersection(poly_det, poly_gt)
     area_union = poly_union(poly_det, poly_gt)
     return area_inters / area_union if area_union != 0 else zero_division
+
+
+def plot_out_tgt_boxes(targets, ):
+    """Plot out_boxes and tgt_boxes on image
+    """
+    pass
