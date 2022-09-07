@@ -1,6 +1,6 @@
 """ buffer.py """
 
-stage = 33  # 7
+stage = 34  # 7
 
 if stage == 1:
     """
@@ -887,3 +887,43 @@ elif stage == 33:
             for _, batch in enumerate(data_loader):
                 pred = model.forward(batch, training=False)
                 post_process(pred, batch)
+
+elif stage == 34:
+    """
+    regenerate toy_dataset due to the extreme difficulty of the previous toy dataset,
+    currently, toy_dataset is subset of msra td500
+    """
+    train_list_filepath = "datasets/toy_dataset/train_list.txt"
+    src_img_root, src_anno_root = (
+        "datasets/TD_TR/TD500/train_images", "datasets/TD_TR/TD500/train_gts"
+    )
+    dst_img_root, dst_anno_root = (
+        "datasets/toy_dataset/train_images", "datasets/toy_dataset/train_gts"
+    )
+    
+    import os
+    import shutil
+    if os.path.exists(dst_img_root):
+        shutil.rmtree(dst_img_root)
+        os.mkdir(dst_img_root)
+    if os.path.exists(dst_anno_root):
+        shutil.rmtree(dst_anno_root)
+        os.mkdir(dst_anno_root)
+    
+        
+    with open(train_list_filepath, "r") as f:
+        lines = f.readlines()
+        train_list_imgpaths = [line.strip() for line in lines]
+    
+    for imgpath in train_list_imgpaths:
+        src_imgpath = os.path.join(src_img_root, imgpath)
+        src_anno_path = os.path.join(src_anno_root, imgpath + ".txt")
+        
+        dst_imgpath = os.path.join(dst_img_root, imgpath)
+        dst_anno_path = os.path.join(dst_anno_root, imgpath + ".txt")
+        
+        assert os.path.exists(src_imgpath) and os.path.exists(src_anno_path), (
+            "{} or {} may no exist".format(src_imgpath, src_anno_path)
+        )
+        shutil.copy(src_imgpath, dst_imgpath)
+        shutil.copy(src_anno_path, dst_anno_path)
