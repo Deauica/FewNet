@@ -1,6 +1,6 @@
 """ buffer.py """
 
-stage = 29  # 7
+stage = 33  # 7
 
 if stage == 1:
     """
@@ -789,11 +789,15 @@ elif stage == 30:
         pass
 
 elif stage == 31:
-    import sys
-    sys.path.append(r"E:\Idea\ConvTransformer\code\conv_trans")
+    try:
+        from decoders.utils import obb2poly
+        from data.utils import poly2obb_np
+    except Exception as e:
+        import sys
+        sys.path.append("..")
+        from decoders.utils import obb2poly
+        from data.utils import poly2obb_np
     
-    from decoders.utils import obb2poly
-    from data.utils import poly2obb_np
     from shapely.geometry import Polygon
     import numpy as np
     
@@ -803,3 +807,79 @@ elif stage == 31:
         np.array(box_quad), angle_version
     )
     print(box_rotated)
+    
+elif stage == 32:
+    """ generate new weight_path with pretrained FPN """
+    pass
+
+elif stage == 33:
+    """ simple code snippet to visualize score_map during inference """
+    from collections import OrderedDict
+    import torch
+    
+    def draw_score_maps(pred, batch, *args, **kwargs):
+        import cv2
+        import numpy as np
+        import os
+        
+        score_maps = pred["score_map"]
+        strides = (8, 16, 32)
+        filenames = (
+            batch["filename"] if "filename" in batch else
+            [f"pseudo_{i}.jpg" for i in range(score_maps[0].shape[0])]
+        )
+        
+        for i, f_level_score_maps in enumerate(score_maps):
+            stride = strides[i]
+            for j, (score_map, filename) in enumerate(zip(f_level_score_maps, filenames)):
+                pseudo_img = cv2.applyColorMap(
+                    (score_map.cpu().numpy() * 255).astype(np.uint8), cv2.COLORMAP_JET
+                )
+                cv2.imwrite(
+                    os.path.join("debug", f"b_{filename}_score_map_{stride}.jpg"), pseudo_img
+                )
+        
+    
+    config_file = "experiments/fewnet/toy_dataset_toy_resnet18.yaml"
+    batch_size, num_workers = 1, 0
+    weight_path = "workspace/toy_dataset_toy_resnet18/model/final"
+    result_dir = "results/"
+    name = "eval_buf_post_{}".format(str(draw_score_maps.__name__))
+    
+    cmd = OrderedDict(
+        exp=config_file,
+        batch_size=batch_size, num_workers=num_workers, resume=weight_path,
+        name=name,
+        result_dir=result_dir,
+        visualize=False
+    )
+    post_process = draw_score_maps
+    
+    try:
+        from concern.config import Config, Configurable
+        from eval import Eval
+    except Exception as e:
+        import sys
+        sys.path.append("..")
+        from concern.config import Config, Configurable
+        from eval import Eval
+        
+    # compile config file
+    conf = Config()
+    experiment_args = conf.compile(conf.load(cmd['exp']))['Experiment']
+    experiment_args.update(cmd=cmd)
+    experiment = Configurable.construct_class_from_config(experiment_args)
+    
+    # initialize model
+    e = Eval(experiment, experiment_args, cmd=cmd)
+    e.init_torch_tensor()
+    model = e.init_model()
+    e.resume(model, e.model_path)
+    model.eval()  # set the eval mode
+    
+    # obtain pred
+    with torch.no_grad():
+        for _, data_loader in e.data_loaders.items():
+            for _, batch in enumerate(data_loader):
+                pred = model.forward(batch, training=False)
+                post_process(pred, batch)
