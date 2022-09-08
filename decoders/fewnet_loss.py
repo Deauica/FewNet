@@ -180,7 +180,7 @@ class FewNetLoss(nn.Module):
         
         if kwargs.get("debug", True):
             from .utils import DebugFewNetLoss
-            self.few_logger = DebugFewNetLoss(self.angle_version)
+            self.few_logger = DebugFewNetLoss(self.angle_version, ratio=1)
         else:
             self.few_logger = None
     

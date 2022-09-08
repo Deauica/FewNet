@@ -14,7 +14,11 @@ define:
 
                 decoder: build_fewnet
                 decoder_args:
-                    in_channels: (256, 512, 1024, 2048)
+                    in_channels: [256, 512, 1024, 2048]
+                    nhead: 16
+                    model_dim: 512
+                    num_encoder_layer: 6
+
                 loss_class: FewNetLoss
                 loss_kwargs:
                     weight_cost_logits: 0
