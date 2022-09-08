@@ -16,8 +16,8 @@ define:
                 decoder_args:
                     in_channels: [256, 512, 1024, 2048]
                     nhead: 16
-                    model_dim: 512
-                    num_encoder_layer: 6
+                    model_dim: 256
+                    num_encoder_layer: 2
 
                 loss_class: FewNetLoss
                 loss_kwargs:
@@ -26,7 +26,7 @@ define:
 
                     weight_loss_score_map: 1 # 5
                     weight_loss_logits: 0  # 3
-                    weight_loss_rbox: 1   # 10
+                    weight_loss_rbox: 5   # 10
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
