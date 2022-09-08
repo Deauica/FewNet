@@ -1,0 +1,84 @@
+import:
+    - "experiments/fewnet/base_toy_dataset.yaml"
+package: []
+define:
+  - name: 'Experiment'
+    class: Experiment
+    structure: 
+        class: Structure
+        builder:   # 针对 fewnet 做一些更改
+            class: Builder
+            model: SegDetectorModel
+            model_args:
+                backbone: deformable_resnet50
+
+                decoder: build_fewnet
+                decoder_kwargs:
+                    in_channels: (256, 512, 1024, 2048)
+                loss_class: FewNetLoss
+                loss_kwargs:
+                    weight_cost_logits: 0
+                    weight_cost_boxes: 1  # stress on boxes
+
+                    weight_loss_score_map: 1 # 5
+                    weight_loss_logits: 0  # 3
+                    weight_loss_rbox: 1   # 10
+
+        representer:
+            class: FewNetPostProcess  # FewNetPostProcess
+            vis_score_map: True  # need visualize score_map
+        measurer:
+            class: QuadMeasurer
+        visualizer:  
+            class: SegDetectorVisualizer
+    train: 
+        class: TrainSettings
+        data_loader: 
+            class: DataLoader
+            dataset: ^train_data
+            batch_size: 16
+            num_workers: 16
+            collect_fn:
+                class: FewNetCollate  # define user-defined collate
+        checkpoint:
+            class: Checkpoint
+            start_epoch: 0
+            start_iter: 0
+            resume: null
+        model_saver: 
+            class: ModelSaver
+            dir_path: model
+            save_interval: 18000
+            signal_path: save
+        scheduler: 
+            class: OptimizerScheduler
+            optimizer: "AdamW"
+            optimizer_args:
+                lr: 0.0001
+                weight_decay: 0.0001
+            learning_rate:
+                class: FewNetLearningRate
+                lr: 0.00001  # pre-train: 1e-3, fine-tune: 5e-4
+        epochs: 50
+
+    validation: &validate
+        class: ValidationSettings
+        data_loaders:
+            icdar2015: 
+                class: DataLoader
+                dataset: ^validate_data
+                batch_size: 1
+                num_workers: 16
+                collect_fn:
+                    class: ICDARCollectFN  # Collate fn is changed
+        visualize: false
+        interval: 4500
+        exempt: 1
+
+    logger:
+        class: Logger
+        verbose: true
+        level: info
+        log_interval: 5
+
+    evaluation: *validate
