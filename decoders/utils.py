@@ -442,7 +442,7 @@ class DebugFewNetLoss(object):
             img = np.transpose(img, (1, 2, 0))  # [H, W, C]
             img += self.RGB_MEAN.reshape([1, 1, -1])
             img = img.clip(0, 255)
-            results.append(img.astype(np.int32))
+            results.append(img.astype(np.float))
         return results
     
     
@@ -456,7 +456,6 @@ class DebugFewNetLoss(object):
         # step 2: generate {tgt, out}_boxes
         tgt_boxes, out_boxes = [], []  # len == number of images
         out_unmatched_boxes = []
-        
         
         for (_tgt_boxes, _out_boxes, _tgt_angles, _out_angles, (out_idxes, tgt_idxes)) in zip(
                 targets["boxes"], outputs["boxes"], targets["angle"], outputs["angle"], indices):
