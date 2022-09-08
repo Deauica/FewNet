@@ -13,7 +13,7 @@ define:
                 backbone: deformable_resnet50
 
                 decoder: build_fewnet
-                decoder_kwargs:
+                decoder_args:
                     in_channels: (256, 512, 1024, 2048)
                 loss_class: FewNetLoss
                 loss_kwargs:
