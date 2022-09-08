@@ -111,7 +111,7 @@ class FewNetLearningRate(Configurable):
         super(FewNetLearningRate, self).__init__(**kwargs)
         
     def get_learning_rate(self, epoch, step=None):
-        rate = self.lr if epoch <= 40 else 0.0001
+        rate = self.lr if epoch <= 40 else self.lr / 2
         return rate
 
 class BuitlinLearningRate(Configurable):
