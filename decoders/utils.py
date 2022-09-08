@@ -424,10 +424,14 @@ import os
 
 
 class DebugFewNetLoss(object):
-    def __init__(self, angle_version):
+    def __init__(self, angle_version, is_plot_unmatched=True, ratio=2):
         self.plot_call_num = 0
         self.RGB_MEAN = np.array([122.67891434, 116.66876762, 104.00698793])
-        self.angle_version = "le135"
+        self.angle_version = angle_version
+        self.is_plot_unmatched = is_plot_unmatched
+        self.ratio = ratio
+        
+        
         if os.path.exists("debug/loss_debug"):
             import shutil
             shutil.rmtree("debug/loss_debug")
@@ -442,7 +446,7 @@ class DebugFewNetLoss(object):
             img = np.transpose(img, (1, 2, 0))  # [H, W, C]
             img += self.RGB_MEAN.reshape([1, 1, -1])
             img = img.clip(0, 255)
-            results.append(img.astype(np.float))
+            results.append(img.astype(np.uint8))
         return results
     
     
@@ -463,7 +467,7 @@ class DebugFewNetLoss(object):
             t = torch.ones(_out_boxes.shape[0])
             out_unmatched_idxes = torch.nonzero(
                 torch.scatter(t.to(out_idxes.device), 0, out_idxes, 0)
-            ).flatten()
+            ).flatten()[: out_idxes.shape[0] * self.ratio]
             
             tgt_boxes_with_score = torch.cat(
                 [_tgt_boxes[tgt_idxes], _tgt_angles[tgt_idxes],
@@ -506,12 +510,15 @@ class DebugFewNetLoss(object):
             R: matched out_boxes,
             B: unmatched_out_boxes
             """
-            cv2.polylines(tgt_img, tgt_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
-                          True, (0, 255, 0), 2)
-            cv2.polylines(tgt_img, out_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
-                          True, (0, 0, 255), 2)
-            cv2.polylines(tgt_img, out_unmatched_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
-                          True, (255, 0, 0), 2)
+            tgt_img = cv2.polylines(tgt_img, tgt_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
+                                    True, (0, 255, 0), 2)
+            tgt_img = cv2.polylines(tgt_img, out_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
+                                    True, (0, 0, 255), 2)
+            if self.is_plot_unmatched:
+                tgt_img = cv2.polylines(
+                    tgt_img, out_unmatched_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
+                    True, (255, 0, 0), 2
+                )
             cv2.imwrite(
                 "debug/loss_debug/ld_{}_{}".format(
                     self.plot_call_num,
