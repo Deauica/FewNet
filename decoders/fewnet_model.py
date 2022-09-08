@@ -189,12 +189,12 @@ class FewNet(nn.Module):
     def __init__(self,
                  fpn=None,
                  feature_sampling=None, feature_grouping=None,
-                 target_mode="rbox", is_coord_norm=True, inner_channels=256,
+                 target_mode="rbox", is_coord_norm=True, inner_channels=256, model_dim=256,
                  *args, **kwargs):
         assert target_mode.lower() in ["rbox"], (
             "Current FewNet only support these target mode: {}"
             "However, your target_model is: {}".format(
-                ["rbox", ],target_mode
+                ["rbox", ], target_mode
             )
         )
         super(FewNet, self).__init__()
@@ -206,19 +206,21 @@ class FewNet(nn.Module):
         self.target_mode = target_mode
         self.is_coord_norm = is_coord_norm  # 对于 detection 来说，坐标是否是 normalized ?
         self.C = inner_channels  # out_channels for feature pyramid network
+        self.model_dim = model_dim  # number of channels for output of feature grouping module
+        
         if self.target_mode.lower() == "rbox":  # head should be combined
             self.cls_head = nn.Sequential(
-                nn.Linear(self.C, 1),  # cls_logits
+                nn.Linear(self.model_dim, 1),  # cls_logits
                 nn.Sigmoid()
             )
             self.xywh_head = nn.Sequential(
-                nn.Linear(self.C, 4)
+                nn.Linear(self.model_dim, 4)
             ) if not self.is_coord_norm else nn.Sequential(
-                nn.Linear(self.C, 4),
+                nn.Linear(self.model_dim, 4),
                 nn.Sigmoid()
             )
             self.angle_head = nn.Sequential(
-                nn.Linear(self.C, 1), nn.Sigmoid()
+                nn.Linear(self.model_dim, 1), nn.Sigmoid()
             )
         else:
             pass
@@ -235,7 +237,7 @@ class FewNet(nn.Module):
         score_maps, descriptors, coordinates = self.feature_sampling(features)  # [B, C, H, W], [B, Nk, C]
         
         # pass features through feature grouping network
-        descriptors = self.feature_grouping(descriptors, coordinates)  # [B, Nk, C]
+        descriptors = self.feature_grouping(descriptors, coordinates)  # [B, Nk, model_dim]
         
         # pass descriptors through head
         logits = self.cls_head(descriptors)
