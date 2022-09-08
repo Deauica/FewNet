@@ -519,11 +519,20 @@ class DebugFewNetLoss(object):
                     tgt_img, out_unmatched_boxes_per_img.reshape([-1, 4, 2]).astype(np.int32),
                     True, (255, 0, 0), 2
                 )
-            cv2.imwrite(
-                "debug/loss_debug/ld_{}_{}".format(
-                    self.plot_call_num,
-                    os.path.basename(targets["filename"][i])if "filename" in targets else
-                    str(i) + ".jpg"
-                ),
-                tgt_img
-            )
+                
+            img_root = "debug/loss_debug"
+            
+            if "filename" in targets:
+                img_dirname = os.path.basename(targets["filename"][i])
+                img_dirpath = os.path.join(img_root, img_dirname)
+                if not os.path.exists(img_dirpath):
+                    os.mkdir(img_dirpath)
+                
+                imgname = "ld_{}_{}".format(
+                    self.plot_call_num, os.path.basename(targets["filename"][i])
+                )
+                imgpath = os.path.join(img_dirpath, imgname)
+                
+                cv2.imwrite(imgpath, tgt_img)
+            else:
+                raise KeyError("filename not exists")

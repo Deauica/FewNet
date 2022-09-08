@@ -257,7 +257,8 @@ class FewNetLoss(nn.Module):
         indices = self.matcher(_outputs, targets)
         
         if self.few_logger is not None:
-            self.few_logger.plot_out_tgt_boxes(targets, _outputs, indices)
+            with torch.no_grad():
+                self.few_logger.plot_out_tgt_boxes(targets, _outputs, indices)
         
         outputs_matched, outputs_unmatched = self.gen_output_matched(
             _outputs, indices, num_selected_features=num_selected_features)  # [str, [num_tgt_boxes, ...]]
