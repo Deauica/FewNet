@@ -844,9 +844,9 @@ elif stage == 33:
                 )
         
     
-    config_file = "experiments/fewnet/toy_dataset_resnet18.yaml"
+    config_file = "experiments/fewnet/toy_dataset_resnet50.yaml"
     batch_size, num_workers = 1, 0
-    weight_path = "workspace/toy_dataset_resnet18_1/model/final"
+    weight_path = "workspace/toy_dataset_resnet50_1/model/final"
     result_dir = "results/"
     name = "eval_buf_post_{}".format(str(draw_score_maps.__name__))
     
