@@ -277,7 +277,7 @@ def build_fewnet(
     fewnet = FewNet(
         fpn=conv_fpn, feature_sampling=feature_sampling, feature_grouping=feature_grouping,
         target_mode=target_mode, is_coord_norm=is_coord_norm,
-        inner_channels=inner_channels
+        inner_channels=inner_channels, model_dim = model_dim
     )
     
     if device is None:
