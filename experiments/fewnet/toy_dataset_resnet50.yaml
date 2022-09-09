@@ -27,13 +27,12 @@ define:
                     weight_loss_score_map: 1 # 5
                     weight_loss_logits: 0  # 3
                     weight_loss_rbox: 5   # 10
-
-                    # loss_rbox_func:  # build the loss_rbox_func
-                        # constructor: EastLoss
-                        # kwargs:
-                            # weight_bbox: 1
-                            # weight_theta: 1
-                            # reduction: "none"
+                    loss_rbox_func:  # build the loss_rbox_func
+                      constructor: EastLoss
+                      kwargs:
+                      weight_bbox: 1
+                      weight_theta: 1
+                      reduction: "none"
 
 
         representer:
@@ -60,7 +59,7 @@ define:
         model_saver: 
             class: ModelSaver
             dir_path: model
-            save_interval: 18000
+            save_interval: 450  # save interval 450
             signal_path: save
         scheduler: 
             class: OptimizerScheduler
