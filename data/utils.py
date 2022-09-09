@@ -262,8 +262,8 @@ class FewNetCollate(concern.config.Configurable):
         try:
             if torch.max(result["boxes"]) > 1:  # no normalization performed before
                 max_H, max_W = result["image"].shape[-2:]
-                result["boxes"][:, 0:-1:2] = result["boxes"][:, 0:-1:2] / max_W
-                result["boxes"][:, 1::2] = result["boxes"][:, 1::2] / max_H
+                result["boxes"][:, :, 0:-1:2] = result["boxes"][:, :, 0:-1:2] / max_W
+                result["boxes"][:, :, 1::2] = result["boxes"][:, :, 1::2] / max_H
         except RuntimeError as e:
             if result["boxes"].shape[1] == 0:  # no boxes, nothing to do
                 # print("no annotation for current box")
@@ -276,7 +276,6 @@ class FewNetCollate(concern.config.Configurable):
             if k in ["image", "score_map", "boxes", "angle"]:
                 continue
             result[k] = default_collate([item[k] for item in batch])
-        
         return result
     
     @staticmethod

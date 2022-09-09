@@ -265,6 +265,8 @@ class FewNetLoss(nn.Module):
         # 3. outputs["boxes"] and outputs["angle"] should not be in normalized form.
         imgH, imgW = targets["image"].shape[-2:]
         l_boxes, l_angles = [], []
+        # print("FewNetLoss -- targets[boxes]: {}".format(targets["boxes"]))
+        
         for i, num_tgt_box in enumerate(targets["num_tgt_boxes"]):
             l_box = targets["boxes"][i, :num_tgt_box]
             l_box[:, 0:-1:2] = l_box[:, 0:-1:2] * imgW
