@@ -17,7 +17,7 @@ define:
                     in_channels: [256, 512, 1024, 2048]
                     nhead: 16
                     model_dim: 256
-                    num_encoder_layer: 2
+                    num_encoder_layer: 3
 
                 loss_class: FewNetLoss
                 loss_kwargs:
@@ -68,9 +68,9 @@ define:
                 lr: 0.0001
                 weight_decay: 0.0001
             learning_rate:
-                class: FewNetLearningRate
-                lr: 0.0001  # pre-train: 1e-3, fine-tune: 5e-4
-        epochs: 100
+                class: DecayLearningRate
+                epochs: 500
+        epochs: 500
 
     validation: &validate
         class: ValidationSettings
