@@ -561,16 +561,19 @@ class EastLoss(nn.Module):
             "However, your reduction is: {}".format(self.reduction)
         )
         
-    def loss_theta(self, pred_theta: torch.Tensor, tgt_theta: torch.Tensor):
+    def loss_theta(self,
+                   pred_theta: torch.Tensor, tgt_theta: torch.Tensor, reduction_override=None):
         loss = 1 - torch.cos(pred_theta - tgt_theta + self.eps)
-        if self.reduction == "mean":
+        reduction = self.reduction if reduction_override is None else reduction_override
+        
+        if reduction == "mean":
             return loss.mean()
-        elif self.reduction == "sum":
+        elif reduction == "sum":
             return loss.sum()
         else:
             return loss
     
-    def loss_bbox(self, pred_bbox: torch.Tensor, tgt_bbox: torch.Tensor):
+    def loss_bbox(self, pred_bbox: torch.Tensor, tgt_bbox: torch.Tensor, reduction_override=None):
         """ Calculate the bbox loss for (cx, cy, w, h) format.
         
         Args:
@@ -580,9 +583,11 @@ class EastLoss(nn.Module):
         Note:
             - This function will utilize giou instead of the iou loss in EAST.
         """
+        reduction = self.reduction if reduction_override is None else reduction_override
+        
         pred_bbox = box_cxcywh_to_xyxy(pred_bbox)
         tgt_bbox = box_cxcywh_to_xyxy(tgt_bbox)
-        return self.generalized_iou_loss(tgt_bbox, pred_bbox, self.reduction)
+        return self.generalized_iou_loss(tgt_bbox, pred_bbox, reduction)
     
     def forward(self, pred_rbox: torch.Tensor, tgt_rbox: torch.Tensor, reduction_override=None,
                 *args, **kwargs):
@@ -594,20 +599,17 @@ class EastLoss(nn.Module):
             reduction_override (Optional[str]): if not None, override the reduction in self.reduction.
         
         Returns:
-            loss_dict (OrderedDict): A Dict that containing the corresponding key-value pair
-                representing the proper loss.
-            loss (torch.Tensor): Scalar tensor, which is the weighted sum for loss_dict.
+            loss (torch.Tensor): Tensor object which is the weighted sum for loss_dict.
         """
         assert pred_rbox.shape[-1] == tgt_rbox.shape[-1] == 5, (
             "Please check your input rbox data since the shape of pred_rbox and tgt_rbox"
             "are: {}, {}".format(pred_rbox.shape, tgt_rbox.shape)
         )
-        self.reduction = self.reduction if reduction_override is None else reduction_override
-        
-        loss_angle = self.loss_theta(pred_rbox[:, -1:], tgt_rbox[:, -1:])
-        loss_bbox = self.loss_bbox(pred_rbox[:, :-1], tgt_rbox[:, :-1])
+        loss_angle = self.loss_theta(pred_rbox[:, -1:], tgt_rbox[:, -1:], reduction_override)
+        loss_bbox = self.loss_bbox(pred_rbox[:, :-1], tgt_rbox[:, :-1], reduction_override)
         loss = self.weight_theta * loss_angle + self.weight_bbox * loss_bbox
-        assert loss, f"loss does not exist, please check it, {loss}"
+        if reduction_override is None:
+            assert loss.shape[0] > 0, f"loss does not exist, please check it, {loss}"
         
         return loss
     
