@@ -27,13 +27,6 @@ define:
                     weight_loss_logits: 0  # 3
                     weight_loss_rbox: 5   # 10
 
-                    loss_rbox_func: # build the loss_rbox_func
-                        constructor: EastLoss
-                        kwargs:
-                            weight_bbox: 1
-                            weight_theta: 1
-                            reduction: "none"
-
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess

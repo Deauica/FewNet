@@ -141,7 +141,8 @@ def cost_rbox_func(out_boxes: Tensor, tgt_boxes: Tensor, **kwargs):
         loss_rbox_func = kwargs["loss_rbox_func"]
     
     cost_mat = loss_rbox_func(
-        tiled_out_boxes.flatten(0, 1), tiled_tgt_boxes.flatten(0, 1)
+        tiled_out_boxes.flatten(0, 1), tiled_tgt_boxes.flatten(0, 1),
+        reduction_override="none"
     ).reshape(tiled_H, tiled_W)  #
     return cost_mat
 
