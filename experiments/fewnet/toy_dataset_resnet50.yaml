@@ -30,10 +30,9 @@ define:
                     loss_rbox_func:  # build the loss_rbox_func
                       constructor: EastLoss
                       kwargs:
-                      weight_bbox: 1
-                      weight_theta: 1
-                      reduction: "none"
-
+                          weight_bbox: 1
+                          weight_theta: 1
+                          reduction: "none"
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
