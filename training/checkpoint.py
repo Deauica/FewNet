@@ -24,8 +24,7 @@ class Checkpoint(Configurable):
             return
 
         if not os.path.exists(self.resume):
-            self.logger.warning("Checkpoint not found: " +
-                                self.resume)
+            self.logger.warning("Checkpoint not found: " + self.resume)
             return
 
         logger.info("Resuming from " + self.resume)

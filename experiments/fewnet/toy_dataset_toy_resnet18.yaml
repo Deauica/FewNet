@@ -20,12 +20,20 @@ define:
                     nhead: 4
                 loss_class: FewNetLoss
                 loss_kwargs:
-                    weight_cost_logits: 1
-                    weight_cost_boxes: 10  # stress on boxes
+                    weight_cost_logits: 0
+                    weight_cost_boxes: 1  # stress on boxes
 
-                    weight_loss_score_map: 1
-                    weight_loss_logits: 1
-                    weight_loss_rbox: 1    # change the weight
+                    weight_loss_score_map: 1 # 5
+                    weight_loss_logits: 0  # 3
+                    weight_loss_rbox: 5   # 10
+
+                    loss_rbox_func: # build the loss_rbox_func
+                        constructor: EastLoss
+                        kwargs:
+                            weight_bbox: 1
+                            weight_theta: 1
+                            reduction: "none"
+
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess

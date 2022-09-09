@@ -24,12 +24,13 @@ from torch import nn
 import torch.nn.functional as F
 from collections import OrderedDict
 import numpy as np
+import functools
+from shapely.geometry import Polygon as plg
 
 from .matcher import *
 from .utils import generalized_box_iou, box_cxcywh_to_xyxy, obb2poly, poly_iou
 from typing import Union
 from .gwd_loss import GDLoss
-from shapely.geometry import Polygon as plg
 
 
 def cost_bboxes_func(out_boxes: Tensor, tgt_boxes: Tensor):
@@ -113,6 +114,10 @@ def cost_rbox_func(out_boxes: Tensor, tgt_boxes: Tensor, **kwargs):
         
     Returns:
         cost_mat (Tensor): a two-dimensional Tensor of shape (bs * num_queries, sum_num_tgt_boxes)
+        
+    Notes:
+        - Default loss_rbox_func should be gwd_loss. However, you can specified a callable object
+            for loss_rbox_func from key-value parameter.
     """
     assert out_boxes.shape[-1] == tgt_boxes.shape[-1] == 5, (
         "shape of out_boxes and tgt_boxes: {}, {}".format(out_boxes.shape, tgt_boxes.shape)
@@ -124,12 +129,17 @@ def cost_rbox_func(out_boxes: Tensor, tgt_boxes: Tensor, **kwargs):
     tiled_tgt_boxes = torch.tile(
         tgt_boxes.unsqueeze(dim=0), dims=(tiled_H, 1, 1)
     )  # ensure the element in each col be same
-    loss_rbox_func = GDLoss(
-        loss_type=kwargs.get("rbox_loss_type", "gwd"),
-        fun=kwargs.get("rbox_fun", "log1p"),
-        tau=kwargs.get("rbox_tau", 1.0),
-        reduction="none"  # 这里仍然采用 reduction
-    )
+    
+    if "loss_rbox_func" not in kwargs:
+        loss_rbox_func = GDLoss(
+            loss_type=kwargs.get("rbox_loss_type", "gwd"),
+            fun=kwargs.get("rbox_fun", "log1p"),
+            tau=kwargs.get("rbox_tau", 1.0),
+            reduction="none"  # 这里仍然采用 reduction
+        )
+    else:
+        loss_rbox_func = kwargs["loss_rbox_func"]
+    
     cost_mat = loss_rbox_func(
         tiled_out_boxes.flatten(0, 1), tiled_tgt_boxes.flatten(0, 1)
     ).reshape(tiled_H, tiled_W)  #
@@ -149,11 +159,44 @@ class FewNetLoss(nn.Module):
         self.weight_loss_score_map, self.weight_loss_logits, self.weight_loss_rbox = (
             weight_loss_score_map, weight_loss_logits, weight_loss_rbox
         )
-        self.cost_logits_func, self.cost_boxes_func = (
-            cost_logits_func, cost_rbox_func  # cost_rbox_func
-        )
         
+        # specify the loss func, loss_logits_func, loss_rbox_func
         self.loss_logits_func = self.loss_logits
+        self.rbox_fun, self.rbox_loss_type, self.rbox_tau, self.rbox_reduction = (
+            rbox_fun, rbox_loss_type, rbox_tau, "sum"
+        )
+        if "loss_rbox_func" not in kwargs:
+            self.loss_rbox_func = GDLoss(
+                loss_type=self.rbox_loss_type, fun=self.rbox_fun, tau=self.rbox_tau,
+                reduction="sum"  # 这里仍然采用 reduction
+            )
+        else:
+            self.loss_rbox_func = kwargs["loss_rbox_func"]
+            if not callable(self.loss_rbox_func):
+                assert isinstance(self.loss_rbox_func, dict), (
+                    "When not callable, self.loss_rbox_func should be at least a dict, "
+                    "However, your self.loss_rbox_func: {}".format(self.loss_rbox_func)
+                )
+                rbox_loss_constructor = self.loss_rbox_func["constructor"]
+                rbox_loss_kwargs = self.loss_rbox_func.get("kwargs", None)
+                
+                # acquire the constructor
+                import sys
+                if hasattr(sys.modules[__name__], rbox_loss_constructor):
+                    self.loss_rbox_func = getattr(sys.modules[__name__], rbox_loss_constructor)
+                else:
+                    from . import utils
+                    self.loss_rbox_func = getattr(utils, rbox_loss_constructor)
+                    
+                # construct the callable object
+                if rbox_loss_kwargs is not None:
+                    self.loss_rbox_func = self.loss_rbox_func(**rbox_loss_kwargs)
+        
+        # specify the cost
+        self.cost_logits_func, self.cost_boxes_func = (
+            cost_logits_func,
+            functools.partial(cost_rbox_func, loss_rbox_func=self.loss_rbox_func)
+        )
         
         self.max_target_num = max_target_num
         self.angle_version = angle_version
@@ -169,18 +212,13 @@ class FewNetLoss(nn.Module):
             self.weight_cost_logits, self.cost_logits_func,
             angle_minmax=None   # need no scale in matcher
         )
-
-        self.rbox_fun, self.rbox_loss_type, self.rbox_tau, self.rbox_reduction = (
-            rbox_fun, rbox_loss_type, rbox_tau, "sum"
-        )
-        self.loss_rbox_func = GDLoss(
-            loss_type=self.rbox_loss_type, fun=self.rbox_fun, tau=self.rbox_tau,
-            reduction="sum"  # 这里仍然采用 reduction
-        )
         
+        # debug utils
         if kwargs.get("debug", True):
             from .utils import DebugFewNetLoss
-            self.few_logger = DebugFewNetLoss(self.angle_version, ratio=1)
+            self.few_logger = DebugFewNetLoss(
+                self.angle_version, ratio=1, step=5, is_plot_unmatched=False
+            )
         else:
             self.few_logger = None
     

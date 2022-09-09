@@ -424,12 +424,14 @@ import os
 
 
 class DebugFewNetLoss(object):
-    def __init__(self, angle_version, is_plot_unmatched=True, ratio=2):
+    def __init__(self, angle_version, is_plot_unmatched=True, ratio=2, step = 1):
         self.plot_call_num = 0
         self.RGB_MEAN = np.array([122.67891434, 116.66876762, 104.00698793])
         self.angle_version = angle_version
         self.is_plot_unmatched = is_plot_unmatched
         self.ratio = ratio
+        self.step = step
+        assert self.step != 0, "step can not be zero"
         
         
         if os.path.exists("debug/loss_debug"):
@@ -453,6 +455,8 @@ class DebugFewNetLoss(object):
     def plot_out_tgt_boxes(self, targets, outputs, indices):
         # step 0: environ preparation
         self.plot_call_num += 1
+        if self.plot_call_num % self.step != 0:
+            return  # do nothing
         
         # step 1: generate images
         tgt_images = self.norm_tensor_2_ndarray(targets["image"])  # List[ndarray]
@@ -536,3 +540,116 @@ class DebugFewNetLoss(object):
                 cv2.imwrite(imgpath, tgt_img)
             else:
                 raise KeyError("filename not exists")
+
+
+# introduce loss from EAST
+from torch import nn
+import torch
+from collections import OrderedDict
+
+
+class EastLoss(nn.Module):
+    def __init__(self, weight_bbox=1, weight_theta=1, reduction="none", *args, **kwargs):
+        super(EastLoss, self).__init__()
+        self.weight_bbox, self.weight_theta = weight_bbox, weight_theta
+        self.reduction = reduction
+        self.eps = 1e-10  # eps
+        self._args, self._kwargs = args, kwargs
+        
+        assert self.reduction in ["sum", "mean", "none"], (
+            "The reduction can noly be one of ['sum', 'mean', 'none'], "
+            "However, your reduction is: {}".format(self.reduction)
+        )
+        
+    def loss_theta(self, pred_theta: torch.Tensor, tgt_theta: torch.Tensor):
+        loss = 1 - torch.cos(pred_theta - tgt_theta + self.eps)
+        if self.reduction == "mean":
+            return loss.mean()
+        elif self.reduction == "sum":
+            return loss.sum()
+        else:
+            return loss
+    
+    def loss_bbox(self, pred_bbox: torch.Tensor, tgt_bbox: torch.Tensor):
+        """ Calculate the bbox loss for (cx, cy, w, h) format.
+        
+        Args:
+            pred_bbox (torch.Tensor): Tensor with shape [num_boxes, 4], (cx, cy, w, h)
+            tgt_bbox (torch.Tensor): Tensor with shape [num_bxoes, 4], (cx, cy, w, h)
+        
+        Note:
+            - This function will utilize giou instead of the iou loss in EAST.
+        """
+        pred_bbox = box_cxcywh_to_xyxy(pred_bbox)
+        tgt_bbox = box_cxcywh_to_xyxy(tgt_bbox)
+        return self.generalized_iou_loss(tgt_bbox, pred_bbox, self.reduction)
+    
+    def forward(self, pred_rbox: torch.Tensor, tgt_rbox: torch.Tensor, reduction_override=None,
+                *args, **kwargs):
+        """ Calculate the Loss with pred_rbox and tgt_rbox representing prediction and target
+        
+        Args:
+            pred_rbox (torch.Tensor): prediction with shape [num_rboxes, 5]
+            tgt_rbox (torch.Tensor): gt with shape [num_rboxes, 5]
+            reduction_override (Optional[str]): if not None, override the reduction in self.reduction.
+        
+        Returns:
+            loss_dict (OrderedDict): A Dict that containing the corresponding key-value pair
+                representing the proper loss.
+            loss (torch.Tensor): Scalar tensor, which is the weighted sum for loss_dict.
+        """
+        assert pred_rbox.shape[-1] == tgt_rbox.shape[-1] == 5, (
+            "Please check your input rbox data since the shape of pred_rbox and tgt_rbox"
+            "are: {}, {}".format(pred_rbox.shape, tgt_rbox.shape)
+        )
+        self.reduction = self.reduction if reduction_override is None else reduction_override
+        
+        loss_angle = self.loss_theta(pred_rbox[:, -1:], tgt_rbox[:, -1:])
+        loss_bbox = self.loss_bbox(pred_rbox[:, :-1], tgt_rbox[:, :-1])
+        loss = self.weight_theta * loss_angle + self.weight_bbox * loss_bbox
+        
+        loss_dict = OrderedDict(
+            loss_angle=loss_angle, loss_bbox=loss_bbox
+        )
+        return loss
+    
+    @staticmethod
+    def generalized_iou_loss(gt_bboxes, pr_bboxes, reduction='none'):
+        """
+        This function is adapted from:
+           https://github.com/CoinCheung/pytorch-loss/blob/master/generalized_iou_loss.py
+        
+        gt_bboxes: tensor (-1, 4) xyxy
+        pr_bboxes: tensor (-1, 4) xyxy
+        loss proposed in the paper of giou
+        
+        Note:
+            - we should keep the dimension of result complied with `gt_bboxes`.
+        """
+        gt_area = (gt_bboxes[:, 2] - gt_bboxes[:, 0]) * (gt_bboxes[:, 3] - gt_bboxes[:, 1])
+        pr_area = (pr_bboxes[:, 2] - pr_bboxes[:, 0]) * (pr_bboxes[:, 3] - pr_bboxes[:, 1])
+        
+        # iou
+        lt = torch.max(gt_bboxes[:, :2], pr_bboxes[:, :2])
+        rb = torch.min(gt_bboxes[:, 2:], pr_bboxes[:, 2:])
+        TO_REMOVE = 1
+        wh = (rb - lt + TO_REMOVE).clamp(min=0)
+        inter = wh[:, 0] * wh[:, 1]
+        union = gt_area + pr_area - inter
+        iou = inter / union
+        # enclosure
+        lt = torch.min(gt_bboxes[:, :2], pr_bboxes[:, :2])
+        rb = torch.max(gt_bboxes[:, 2:], pr_bboxes[:, 2:])
+        wh = (rb - lt + TO_REMOVE).clamp(min=0)
+        enclosure = wh[:, 0] * wh[:, 1]
+    
+        giou = iou - (enclosure - union) / enclosure
+        loss = 1. - giou.unsqueeze(dim=-1)  # recover the dimension
+        
+        if reduction == 'mean':
+            loss = loss.mean()
+        elif reduction == 'sum':
+            loss = loss.sum()
+        elif reduction == 'none':
+            pass
+        return loss
