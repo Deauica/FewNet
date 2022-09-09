@@ -607,10 +607,8 @@ class EastLoss(nn.Module):
         loss_angle = self.loss_theta(pred_rbox[:, -1:], tgt_rbox[:, -1:])
         loss_bbox = self.loss_bbox(pred_rbox[:, :-1], tgt_rbox[:, :-1])
         loss = self.weight_theta * loss_angle + self.weight_bbox * loss_bbox
+        assert loss, f"loss does not exist, please check it, {loss}"
         
-        loss_dict = OrderedDict(
-            loss_angle=loss_angle, loss_bbox=loss_bbox
-        )
         return loss
     
     @staticmethod
