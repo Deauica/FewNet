@@ -138,9 +138,9 @@ class Trainer:
         if step % self.experiment.logger.log_interval == 0:
             param_keys = [param_group.get("params_key", "default")
                           for param_group in optimizer.param_groups]
-            lr_str = "lr: "
+            lr_str = "lr: ("
             for param_key, _lr in zip(param_keys, self.current_lr):
-                lr_str += "({}: {:.7f}, ".format(param_key, _lr)
+                lr_str += "{}: {:.6f}, ".format(param_key, _lr)
             lr_str += ")"
                 
             if isinstance(l, dict):
