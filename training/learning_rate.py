@@ -112,7 +112,7 @@ class FewNetLearningRate(Configurable):
         super(FewNetLearningRate, self).__init__(**kwargs)
         
     def get_learning_rate(self, epoch, step=None):
-        rate = self.lr if epoch <= watershed_epoch else self.next_lr
+        rate = self.lr if epoch <= self.watershed_epoch else self.next_lr
         return rate
 
 class BuitlinLearningRate(Configurable):
