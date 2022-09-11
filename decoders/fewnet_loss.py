@@ -218,7 +218,7 @@ class FewNetLoss(nn.Module):
         if kwargs.get("debug", True):
             from .utils import DebugFewNetLoss
             self.few_logger = DebugFewNetLoss(
-                self.angle_version, ratio=1, step=5, is_plot_unmatched=False
+                self.angle_version, ratio=1, step=100, is_plot_unmatched=False
             )
         else:
             self.few_logger = None
@@ -455,7 +455,9 @@ class FewNetLoss(nn.Module):
             #     out_score_map, tgt_score_map, reduction="none")
             loss = F.binary_cross_entropy(out_score_map, tgt_score_map, reduction="none")
             positive_loss, negative_loss = loss * positive_mask, loss * negative_mask
-            negative_loss, _ = torch.topk(negative_loss.flatten(), negative_count)
+            negative_loss, _ = torch.topk(
+                negative_loss.flatten(), min(torch.numel(negative_loss), negative_count)
+            )
             
             N_f += positive_count + negative_count
             loss_sum += positive_loss.sum() + negative_loss.sum()

@@ -133,7 +133,9 @@ class MakeFewNetTarget(Configurable):
         # step 1. generate rotated box information
         rboxes = list()
         for _, polygon in enumerate(data["polygons"]):
-            polygon = np.reshape(polygon, [8])
+            rect = cv2.minAreaRect(polygon.reshape(4, 2).astype(np.int32))
+            polygon = cv2.boxPoints(rect)
+            polygon = np.reshape(polygon, [8])  # 此处不见得是 min_rect
             rbox = poly2obb_np(polygon, version=self.angle_version)
             rboxes.append(rbox)
         rboxes = np.array(rboxes, dtype=np.float32).reshape([-1, 5])  # [cx, cy, w, h, theta]

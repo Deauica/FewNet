@@ -10,15 +10,15 @@ define:
             class: Builder
             model: SegDetectorModel
             model_args:
-                backbone: deformable_resnet50
-
+                backbone: deformable_resnet18
                 decoder: build_fewnet
                 decoder_args:
-                    in_channels: [256, 512, 1024, 2048]
-                    nhead: 16
-                    model_dim: 512
-                    num_encoder_layer: 4
-
+                    need_conv_fpn: False
+                    inner_channels: 32
+                    num_encoder_layer: 1
+                    model_dim: 32
+                    nhead: 4
+                    nk: [32, 16, 8]  # very small set
                 loss_class: FewNetLoss
                 loss_kwargs:
                     weight_cost_logits: 0
@@ -27,6 +27,7 @@ define:
                     weight_loss_score_map: 1 # 5
                     weight_loss_logits: 0  # 3
                     weight_loss_rbox: 1   # 10
+
 
         representer:
             class: FewNetPostProcess  # FewNetPostProcess
@@ -52,12 +53,12 @@ define:
         model_saver: 
             class: ModelSaver
             dir_path: model
-            save_interval: 450  # save interval 450
+            save_interval: 18000
             signal_path: save
         scheduler: # How to define multiple learning rate ?
             class: FewNetOptimizerScheduler
             optimizer: "AdamW"  # official optimizer is sufficient
-            optimizer_args: # lr in optimizer is useless due to the pipeline of project
+            optimizer_args:  # lr in optimizer is useless due to the pipeline of project
                 constructor_args: { lr: 0.0001, weight_decay: 0.0001 }  # default args
                 params_dict: # For other params
                     - {
@@ -68,11 +69,11 @@ define:
             learning_rate: FewNetScheduler  # 针对不同的 param_group, 定义 不同的 scheduler
             learning_rate_args: # order should keep pace with optimizer
                 constructor: DecayLearningRate
-                constructor_args: { lr: 0.0001, epochs: 1200 }
+                constructor_args: { lr: 0.001, epochs: 50 }
                 feature_grouping: # keep pace to optimizer_args.params_dict[i].params_key
-                    constructor: DecayLearningRate
-                    constructor_args: { lr: 0.0005 }  # epoch is the same as default
-        epochs: 1200
+                    constructor: FewNetLearningRate
+                    constructor_args: { lr: 0.001 }  # epoch is the same as default
+        epochs: 50
 
     validation: &validate
         class: ValidationSettings
@@ -83,7 +84,7 @@ define:
                 batch_size: 1
                 num_workers: 16
                 collect_fn:
-                    class: ICDARCollectFN  # Collate fn is changed
+                    class: ICDARCollectFN
         visualize: false
         interval: 4500
         exempt: 1
@@ -92,6 +93,6 @@ define:
         class: Logger
         verbose: true
         level: info
-        log_interval: 5
+        log_interval: 2
 
     evaluation: *validate

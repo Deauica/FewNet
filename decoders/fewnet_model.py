@@ -7,6 +7,7 @@ decoders/fewnet_loss.py.
 structure/model.py 中的 ``SegDetectorModel``.
 
 """
+import warnings
 
 import torch
 from torch import nn
@@ -209,13 +210,15 @@ class FewNet(nn.Module):
         self.model_dim = model_dim  # number of channels for output of feature grouping module
         
         if self.target_mode.lower() == "rbox":  # head should be combined
+            if not self.is_coord_norm:
+                warnings.warn("the xywh will be normalized all the time,"
+                              " Though your self.is_coord_norm is: {}".format(self.is_coord_norm))
+                
             self.cls_head = nn.Sequential(
                 nn.Linear(self.model_dim, 1),  # cls_logits
                 nn.Sigmoid()
             )
             self.xywh_head = nn.Sequential(
-                nn.Linear(self.model_dim, 4)
-            ) if not self.is_coord_norm else nn.Sequential(
                 nn.Linear(self.model_dim, 4),
                 nn.Sigmoid()
             )

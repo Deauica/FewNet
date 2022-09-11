@@ -112,8 +112,12 @@ def poly2obb_np_le135(poly):
                     (pt1[1] - pt2[1]))
     edge2 = np.sqrt((pt2[0] - pt3[0]) * (pt2[0] - pt3[0]) + (pt2[1] - pt3[1]) *
                     (pt2[1] - pt3[1]))
-    if edge1 < 2 or edge2 < 2:
-        return
+    # if edge1 < 2 or edge2 < 2:
+    #     return
+    assert edge1 >= 2 and edge2 >= 2, (
+        "edge1: {}, edge2: {}".format(edge1, edge2)
+    )
+    
     width = max(edge1, edge2)
     height = min(edge1, edge2)
     angle = 0
@@ -252,6 +256,7 @@ class FewNetCollate(concern.config.Configurable):
             )
             
         # for boxes and angles
+        # angles will not be normalized, but boxes may be
         result["num_tgt_boxes"] = torch.as_tensor([len(item["boxes"]) for item in batch])
         result["boxes"] = self.transform_boxes(
             [item["boxes"] for item in batch]
