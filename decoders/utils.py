@@ -506,7 +506,7 @@ class DebugFewNetLoss(object):
                     outstr += f"{tgt_boxes_per_img}"
                     outstr += "\n"
                 f.writelines(outstr)
-            tgt_boxes = []  # make it empty
+            tgt_boxes = [np.array([]) for tgt_boxe_per_img in tgt_boxes]  # make it empty
                 
         out_boxes = [
             obb2poly_np(out_boxes_per_img, self.angle_version)[:, :-1]
