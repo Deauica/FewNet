@@ -72,7 +72,7 @@ define:
                 constructor_args: { lr: 0.0001, watershed_epoch: 15, next_lr: 0 }
                 feature_grouping: # keep pace to optimizer_args.params_dict[i].params_key
                     constructor: DecayLearningRate
-                    constructor_args: { lr: 0.001, epochs: 500 }  # epoch is the same as default
+                    constructor_args: { lr: 0.0001, epochs: 500 }  # epoch is the same as default
         epochs: 500
 
     validation: &validate
