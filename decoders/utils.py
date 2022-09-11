@@ -499,7 +499,7 @@ class DebugFewNetLoss(object):
                 for tgt_boxes_per_img in tgt_boxes
             ]
         except Exception as e:
-            with open("exception.txt") as f:
+            with open("exception.txt", "a") as f:
                 outstr = ""
                 for tgt_boxes_per_img in tgt_boxes:
                     outstr += f"{targets['filename']} \n"
