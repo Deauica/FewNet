@@ -104,4 +104,4 @@ class HungarianMatcher(nn.Module):
         sizes = [len(_) for _ in targets["boxes"]]
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(cost_matrix.split(sizes, -1))]
         return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64))
-                for i, j in indices]
+                for i, j in indices], cost_matrix.split(sizes, -1)

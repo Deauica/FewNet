@@ -18,6 +18,7 @@ define:
                     num_encoder_layer: 1
                     model_dim: 32
                     nhead: 4
+                    nk: [32, 16, 8]  # very small set
                 loss_class: FewNetLoss
                 loss_kwargs:
                     weight_cost_logits: 0
@@ -25,7 +26,7 @@ define:
 
                     weight_loss_score_map: 1 # 5
                     weight_loss_logits: 0  # 3
-                    weight_loss_rbox: 5   # 10
+                    weight_loss_rbox: 1   # 10
 
 
         representer:
@@ -71,7 +72,7 @@ define:
                 constructor_args: { lr: 0.001, epochs: 50 }
                 feature_grouping: # keep pace to optimizer_args.params_dict[i].params_key
                     constructor: FewNetLearningRate
-                    constructor_args: { lr: 0.007 }  # epoch is the same as default
+                    constructor_args: { lr: 0.001 }  # epoch is the same as default
         epochs: 50
 
     validation: &validate

@@ -80,8 +80,8 @@ def cost_logits_func(out_prob: Tensor, tgt_labels: Tensor):
     """
     if len(out_prob.shape) < 2:
         out_prob = out_prob.unsqueeze(dim=-1)
-    cost_logits = F.binary_cross_entropy(out_prob, torch.ones_like(out_prob))
-    return cost_logits.tile([len(tgt_labels), ])
+    cost_logits = F.binary_cross_entropy(out_prob, torch.ones_like(out_prob), reduction="none")
+    return cost_logits.tile([1, len(tgt_labels)])  # [bs * num_queries, num_tgt_boxes_batch]
 
 
 def cost_angle_func(out_angle: Tensor, tgt_angle: Tensor):
@@ -265,7 +265,9 @@ class FewNetLoss(nn.Module):
         # 3. outputs["boxes"] and outputs["angle"] should not be in normalized form.
         imgH, imgW = targets["image"].shape[-2:]
         l_boxes, l_angles = [], []
-        # print("FewNetLoss -- targets[boxes]: {}".format(targets["boxes"]))
+        # print("FewNetLoss -- \n"
+        #       "targets[boxes]: \n{}\n"
+        #       "filename: {}\n".format(targets["boxes"], targets["filename"]))
         
         for i, num_tgt_box in enumerate(targets["num_tgt_boxes"]):
             l_box = targets["boxes"][i, :num_tgt_box]
@@ -295,7 +297,7 @@ class FewNetLoss(nn.Module):
         # step 2. matching between outputs and targets
         # Now, outputs and targets contain no score_map
         B, num_selected_features = outputs["boxes"].shape[:2]
-        indices = self.matcher(_outputs, targets)
+        indices, cost_matrix = self.matcher(_outputs, targets)
         
         if self.few_logger is not None:
             with torch.no_grad():
@@ -315,6 +317,15 @@ class FewNetLoss(nn.Module):
         )
         loss_rbox = self.loss_rbox_func(outputs_rbox, tgt_rbox,
                                         reduction_override=self.rbox_reduction)
+        # only for debug
+        _t = 0
+        for i, (c, indice) in enumerate(zip(cost_matrix, indices)):
+            out_idx, tgt_idx = indice
+            _t += torch.sum(c[i][out_idx, tgt_idx])
+        assert torch.abs(_t.cpu() - loss_rbox.cpu()) < 1e-6, (
+            "_t.cpu(): {}, loss_rbox.cpu(): {}".format(_t.cpu(), loss_rbox.cpu())
+        )
+        # only for debug
         loss_dict.update(
             loss_rbox=self.weight_loss_rbox * loss_rbox / N_r)
         
@@ -337,7 +348,7 @@ class FewNetLoss(nn.Module):
         
         return loss, loss_dict
     
-    def gen_output_matched(self, outputs, indices, num_selected_features, ratio=3):
+    def gen_output_matched(self, outputs, indices, num_selected_features, ratio=1):
         """
         Returns:
             matched_t (Dict[str, Tensor]): a dict containing at least "bbox", "logits", "angle".

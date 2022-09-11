@@ -115,6 +115,7 @@ class FewNetLearningRate(Configurable):
         rate = self.lr if epoch <= self.watershed_epoch else self.next_lr
         return rate
 
+
 class BuitlinLearningRate(Configurable):
     lr = State(default=0.001)
     klass = State(default='StepLR')
