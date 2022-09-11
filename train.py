@@ -81,7 +81,7 @@ if __name__ == '__main__':
     import os
     
     # basic environment setting
-    if not os.path.join(".", "debug"):
+    if not os.path.exists(os.path.join(".", "debug")):
         os.mkdir(os.path.join(".", "debug"))
     jpg_paths = [os.path.join("debug", jpg_file)
                  for jpg_file in os.listdir(os.path.join(".", "debug"))
