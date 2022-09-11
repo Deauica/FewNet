@@ -15,7 +15,7 @@ define:
                 decoder_args:
                     need_conv_fpn: False
                     inner_channels: 32
-                    num_encoder_layer: 2
+                    num_encoder_layer: 1
                     model_dim: 32
                     nhead: 4
                 loss_class: FewNetLoss

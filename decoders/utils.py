@@ -424,7 +424,7 @@ import os
 
 
 class DebugFewNetLoss(object):
-    def __init__(self, angle_version, is_plot_unmatched=True, ratio=2, step = 1):
+    def __init__(self, angle_version, is_plot_unmatched=True, ratio=2, step=1):
         self.plot_call_num = 0
         self.RGB_MEAN = np.array([122.67891434, 116.66876762, 104.00698793])
         self.angle_version = angle_version

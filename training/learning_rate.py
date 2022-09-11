@@ -105,12 +105,14 @@ class FewNetLearningRate(Configurable):
     0.001 of initial lr in pre-training and 0.0005 in fine-tuning
     """
     lr = State(default=0.001)
+    watershed_epoch = State(default=20)
+    next_lr = State(default=0)
     
     def __init__(self, **kwargs):
         super(FewNetLearningRate, self).__init__(**kwargs)
         
     def get_learning_rate(self, epoch, step=None):
-        rate = self.lr if epoch <= 40 else 0.0001
+        rate = self.lr if epoch <= watershed_epoch else self.next_lr
         return rate
 
 class BuitlinLearningRate(Configurable):
