@@ -493,10 +493,21 @@ class DebugFewNetLoss(object):
             out_unmatched_boxes.append(out_unmatched_boxes_with_score.detach().cpu().numpy())
         
         # transform {tgt, out}_boxes to quad version
-        tgt_boxes = [
-            obb2poly_np(tgt_boxes_per_img, self.angle_version)[:, :-1]
-            for tgt_boxes_per_img in tgt_boxes
-        ]
+        try:
+            tgt_boxes = [
+                obb2poly_np(tgt_boxes_per_img, self.angle_version)[:, :-1]
+                for tgt_boxes_per_img in tgt_boxes
+            ]
+        except Exception as e:
+            with open("exception.txt") as f:
+                outstr = ""
+                for tgt_boxes_per_img in tgt_boxes:
+                    outstr += f"{targets['filename']} \n"
+                    outstr += f"{tgt_boxes_per_img}"
+                    outstr += "\n"
+                f.writelines(outstr)
+            tgt_boxes = []  # make it empty
+                
         out_boxes = [
             obb2poly_np(out_boxes_per_img, self.angle_version)[:, :-1]
             for out_boxes_per_img in out_boxes
