@@ -322,7 +322,7 @@ class FewNetLoss(nn.Module):
         for i, (c, indice) in enumerate(zip(cost_matrix, indices)):
             out_idx, tgt_idx = indice
             _t += torch.sum(c[i][out_idx, tgt_idx])
-        assert torch.abs(_t.cpu() - loss_rbox.cpu()) < 1e-6, (
+        assert torch.abs(_t.cpu() - loss_rbox.cpu()) < 1e-5, (
             "_t.cpu(): {}, loss_rbox.cpu(): {}".format(_t.cpu(), loss_rbox.cpu())
         )
         # only for debug
