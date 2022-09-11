@@ -86,6 +86,7 @@ if __name__ == '__main__':
     jpg_paths = [os.path.join("debug", jpg_file)
                  for jpg_file in os.listdir(os.path.join(".", "debug"))
                  if jpg_file.endswith(".jpg") or jpg_file.endswith(".JPG")]
+    
     for jpg_path in jpg_paths:
         os.remove(jpg_path)
     
