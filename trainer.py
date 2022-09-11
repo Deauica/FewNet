@@ -149,7 +149,7 @@ class Trainer:
                     step, epoch, line, lr_str)
                 self.logger.info(log_info)
             else:
-                self.logger.info("step: {:5d}, epoch: {:3d}, loss: {:.5f}, {}".format(
+                self.logger.info("step: {:4d}, epoch: {:3d}, loss: {:.5f}, {}".format(
                     step, epoch, loss.item(), lr_str
                 ))
             self.logger.add_scalar('loss', loss, step)
