@@ -5,4 +5,5 @@ package:
     - 'training.learning_rate'
     - 'data'
     - 'data.processes'
+    - "training.optimizer_scheduler"  # mahy
 define: []

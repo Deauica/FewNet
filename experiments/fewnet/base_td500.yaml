@@ -26,7 +26,7 @@ define:
 
         - class: NormalizeImage
         - class: FilterKeys
-          superfluous: ['polygons', 'filename', 'shape', 'ignore_tags', 'is_training']
+          superfluous: ['polygons', 'shape', 'ignore_tags', 'is_training']
 
   - name: validate_data
     class: ImageDataset

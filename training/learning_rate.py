@@ -93,7 +93,6 @@ class DecayLearningRate(Configurable):
 
     def __init__(self, **kwargs):
         self.load_all(**kwargs)
-        pass
 
     def get_learning_rate(self, epoch, step=None):
         rate = np.power(1.0 - epoch / float(self.epochs + 1), self.factor)
@@ -111,7 +110,7 @@ class FewNetLearningRate(Configurable):
         super(FewNetLearningRate, self).__init__(**kwargs)
         
     def get_learning_rate(self, epoch, step=None):
-        rate = self.lr if epoch <= 40 else self.lr / 2
+        rate = self.lr if epoch <= 40 else 0.0001
         return rate
 
 class BuitlinLearningRate(Configurable):

@@ -54,16 +54,24 @@ define:
             dir_path: model
             save_interval: 18000
             signal_path: save
-        scheduler:
-            class: OptimizerScheduler
-            optimizer: "AdamW"
-            optimizer_args:
-                lr: 0.007
-                weight_decay: 0.0001
-            learning_rate:  
-                class: DecayLearningRate
-                lr: 0.0001  # pre-train: 1e-3, fine-tune: 5e-4
-                epochs: 50
+        scheduler: # How to define multiple learning rate ?
+            class: FewNetOptimizerScheduler
+            optimizer: "AdamW"  # official optimizer is sufficient
+            optimizer_args:  # lr in optimizer is useless due to the pipeline of project
+                constructor_args: { lr: 0.0001, weight_decay: 0.0001 }  # default args
+                params_dict: # For other params
+                    - {
+                        params_key: "feature_grouping",
+                        lr: 0.0001, weight_decay: 0.0001
+                    }
+
+            learning_rate: FewNetScheduler  # 针对不同的 param_group, 定义 不同的 scheduler
+            learning_rate_args: # order should keep pace with optimizer
+                constructor: DecayLearningRate
+                constructor_args: { lr: 0.001, epochs: 50 }
+                feature_grouping: # keep pace to optimizer_args.params_dict[i].params_key
+                    constructor: FewNetLearningRate
+                    constructor_args: { lr: 0.007 }  # epoch is the same as default
         epochs: 50
 
     validation: &validate

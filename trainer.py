@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 from experiment import Experiment
 from data.data_loader import DistributedSampler
+from typing import Iterable
 
 
 class Trainer:
@@ -40,10 +41,14 @@ class Trainer:
         """
         lr = self.experiment.train.scheduler.learning_rate.get_learning_rate(
             epoch, step)
-
-        for group in optimizer.param_groups:
-            group['lr'] = lr
-        self.current_lr = lr
+        if not isinstance(lr, Iterable):
+            lr = [lr for _ in range(len(optimizer.params_groups))]
+        assert len(lr) == len(optimizer.param_groups)
+        
+        for _lr, group in zip(lr, optimizer.param_groups):
+            group['lr'] = _lr
+            
+        self.current_lr = lr  # may be a iterable
 
     def train(self):
         self.logger.report_time('Start')
@@ -63,7 +68,7 @@ class Trainer:
         # Init start epoch and iter
         # define the parameters by your personal model
         optimizer = self.experiment.train.scheduler.create_optimizer(
-            model.parameters())
+            model.named_parameters())  #
 
         self.logger.report_time('Init')
 
@@ -74,6 +79,8 @@ class Trainer:
             self.total = len(train_data_loader)
 
             for batch in train_data_loader:
+                # In this pipeline,
+                # Scheduler is called before Optimizer.
                 self.update_learning_rate(optimizer, epoch, self.steps)
 
                 self.logger.report_time("Data loading")
@@ -129,15 +136,28 @@ class Trainer:
         optimizer.step()
 
         if step % self.experiment.logger.log_interval == 0:
+            param_keys = [param_group.get("params_key", "default")
+                          for param_group in optimizer.param_groups]
+            lr_str = "lr: "
+            for param_key, _lr in zip(param_keys, self.current_lr):
+                lr_str += "({}: {:.5f})".format(param_key, _lr)
+                
             if isinstance(l, dict):
                 line = '\t'.join(line)
-                log_info = '\t'.join(['step:{:6d}', 'epoch:{:3d}', '{}', 'lr:{:.4f}']).format(step, epoch, line, self.current_lr)
+                log_info = '\t'.join(['step:{:5d}', 'epoch:{:3d}', '{}', '{}']).format(
+                    step, epoch, line, lr_str)
                 self.logger.info(log_info)
             else:
-                self.logger.info('step: %6d, epoch: %3d, loss: %.6f, lr: %f' % (
-                    step, epoch, loss.item(), self.current_lr))
+                self.logger.info("step: {:5d}, epoch: {:3d}, loss: {:.5f}, {}".format(
+                    step, epoch, loss.item(), lr_str
+                ))
             self.logger.add_scalar('loss', loss, step)
-            self.logger.add_scalar('learning_rate', self.current_lr, step)
+            
+            # logger for self.current_lr
+            
+            for param_key, _lr in zip(param_keys, self.current_lr):
+                self.logger.add_scalar(param_key, _lr, step)
+            # self.logger.add_scalar('learning_rate', self.current_lr, step)
             for name, metric in metrics.items():
                 if hasattr(metric, "mean"):
                     self.logger.add_scalar(name, metric.mean(), step)
