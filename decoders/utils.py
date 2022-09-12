@@ -495,7 +495,7 @@ class DebugFewNetLoss(object):
         # transform {tgt, out}_boxes to quad version
         try:
             tgt_boxes = [
-                obb2poly_np(tgt_boxes_per_img, self.angle_version)[:, :-1]
+                obb2poly_np(tgt_boxes_per_img, self.angle_version).reshape(-1, 9)[:, :-1]
                 for tgt_boxes_per_img in tgt_boxes
             ]
         except Exception as e:
@@ -509,11 +509,11 @@ class DebugFewNetLoss(object):
             tgt_boxes = [np.array([]) for tgt_boxe_per_img in tgt_boxes]  # make it empty
                 
         out_boxes = [
-            obb2poly_np(out_boxes_per_img, self.angle_version)[:, :-1]
+            obb2poly_np(out_boxes_per_img, self.angle_version).reshape(-1, 9)[:, :-1]
             for out_boxes_per_img in out_boxes
         ]
         out_unmatched_boxes = [
-            obb2poly_np(out_unmatched_boxes_per_img, self.angle_version)[:, :-1]
+            obb2poly_np(out_unmatched_boxes_per_img, self.angle_version).reshape(-1, 9)[:, :-1]
             for out_unmatched_boxes_per_img in out_unmatched_boxes
         ]
         
