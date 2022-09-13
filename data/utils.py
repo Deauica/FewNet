@@ -276,9 +276,9 @@ class FewNetCollate(concern.config.Configurable):
             else:
                 raise RuntimeError(e)
             
-        # for filename
+        # for filename in data_parallel
         if "filename" in result:
-            result["filename_index"] = np.arange(len(result["filename"]))
+            result["filename_index"] = torch.arange(len(result["filename"]))
         
         # for others
         for k in keys:
