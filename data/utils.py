@@ -275,16 +275,16 @@ class FewNetCollate(concern.config.Configurable):
                 pass  # result["boxes"].shape should be [B, -1, 4], -1 can be 0
             else:
                 raise RuntimeError(e)
-            
-        # for filename in data_parallel
-        if "filename" in result:
-            result["filename_index"] = torch.arange(len(result["filename"]))
         
         # for others
         for k in keys:
             if k in ["image", "score_map", "boxes", "angle"]:
                 continue
             result[k] = default_collate([item[k] for item in batch])
+        
+        # for filename in data_parallel
+        if "filename" in result:
+            result["filename_index"] = torch.arange(len(result["filename"]))
         return result
     
     @staticmethod
