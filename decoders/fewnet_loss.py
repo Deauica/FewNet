@@ -286,6 +286,14 @@ class FewNetLoss(nn.Module):
         _out_angle = self.scale(outputs["angle"], self.angle_minmax[0], self.angle_minmax[1])
         _outputs = OrderedDict(boxes=_out_boxes, angle=_out_angle, logits=outputs["logits"])
         
+        # prepare for targets["filename"] due to no split for list[str] in data_parallel
+        if "filename" in targets:
+            assert "filename_index" in targets, (
+                "If you keep filename in targets, then, "
+                "**filename_index** should also be added when utilizing data_parallel"
+            )
+            targets["filename"] = [targets["filename"][i] for i in targets["filename_index"]]
+        
         # step 1. loss for score_maps
         out_score_maps, tgt_score_maps = outputs.pop("score_map"), targets.pop("score_map")
         tgt_score_masks = targets.pop("score_mask", None)

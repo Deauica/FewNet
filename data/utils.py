@@ -275,6 +275,10 @@ class FewNetCollate(concern.config.Configurable):
                 pass  # result["boxes"].shape should be [B, -1, 4], -1 can be 0
             else:
                 raise RuntimeError(e)
+            
+        # for filename
+        if "filename" in result:
+            result["filename_index"] = np.arange(len(result["filename"]))
         
         # for others
         for k in keys:
